@@ -15,7 +15,7 @@ class SpriteFont {
      */
     constructor(
         buffer,
-        indexString= "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!\"#$%&'()*+,-./:;<=>?@[\\]^_{|} ",
+        indexString= "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890`~!@#$%^&*-=_+\\|;:'\",.\/?()[]{}<>",
         page = 0, charWidth = 5, charHeight = 10, fontSheetWidth = 65,
         glyphColorIndex = 2) {
         this.buffer      = buffer;
