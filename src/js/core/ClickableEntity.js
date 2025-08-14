@@ -9,6 +9,8 @@ export default class ClickableEntity {
     this.colorA = colorA;
     this.colorB = colorB;
     this.active = false;
+  // whether this object should block player movement when active
+  this.blocksMovement = true;
   }
 
   contains(px, py) {
@@ -26,7 +28,16 @@ export default class ClickableEntity {
   }
 
   // expose bounds for simple raycast/overlap checks
+  // Only return bounds when active so inactive clickables don't block beams/movement.
+  // Returns null when not active.
   getBounds() {
+    // Always return bounds so laser can hit inactive clickables. Movement blocking
+    // will be decided by the game logic (based on this.active or other flags).
     return { x: this.x, y: this.y, w: this.w, h: this.h };
+  }
+
+  // Called when a laser beam hits this object. Default behaviour: toggle active.
+  onLaserHit() {
+    this.active = !this.active;
   }
 }

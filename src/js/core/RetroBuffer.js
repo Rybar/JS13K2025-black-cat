@@ -48,8 +48,7 @@ export default class RetroBuffer {
     // --- extract palette from top row of image ---
     const imgW = paletteImage.width;
     const imgH = paletteImage.height;
-    if (imgW < 2 || imgW > 256) 
-      throw new Error(`Palette width must be between 2 and 256, got ${imgW}`);
+  if (imgW < 2 || imgW > 256) throw 0;
 
     // draw image to temp canvas
     const tmp = document.createElement('canvas');
@@ -62,7 +61,7 @@ export default class RetroBuffer {
     // number of palette entries from top row
     this.paletteCount = imgW;
     this.palette32 = new Uint32Array(this.paletteCount);
-    const paletteMap = new Map();
+  const pmap = new Map();
     for (let i = 0; i < this.paletteCount; i++) {
       const offset = i * 4;
       const r = imgData[offset];
@@ -70,8 +69,8 @@ export default class RetroBuffer {
       const b = imgData[offset + 2];
       const a = imgData[offset + 3];
       const colorInt = (a << 24) | (b << 16) | (g << 8) | r;
-      this.palette32[i] = colorInt;
-      paletteMap.set(colorInt, i);
+  this.palette32[i] = colorInt;
+  pmap.set(colorInt, i);
     }
 
     // --- initialize the 2D color table as a flat array ---
@@ -107,7 +106,7 @@ export default class RetroBuffer {
         const b = imgData[srcOff + 2];
         const a = imgData[srcOff + 3];
         const colorInt = (a << 24) | (b << 16) | (g << 8) | r;
-        const idx = paletteMap.get(colorInt) ?? 0;
+  const idx = pmap.get(colorInt) ?? 0;
 
         // Compute destination index as (row * pageWidth + col)
         const destIdx = yy * this.width + xx;
@@ -116,7 +115,7 @@ export default class RetroBuffer {
     }
 
 
-    // --- create visible canvas ---
+  // create visible canvas
     this.canvas = document.createElement('canvas');
     this.canvas.style.width = "100%";
     this.canvas.width  = width;
@@ -129,7 +128,7 @@ export default class RetroBuffer {
     this.buffer8   = new Uint8Array(this.imageData.data.buffer);
     this.pixelBuffer = new Uint32Array(this.imageData.data.buffer);
 
-    // 4×4 Bayer matrix for ordered dithering
+  // 4x4 Bayer matrix
     this.dither = new Uint8Array([
       15, 135, 45, 165,
       195, 75, 225, 105,
@@ -153,9 +152,7 @@ export default class RetroBuffer {
       const start = page * this.pageSize;
       this.screenBuffer = this.ram.subarray(start, start + this.pageSize);
       this.screenPage = page;
-    } else {
-      throw new Error(`Page must be in range 0..${this.pages - 1} or -1`);
-    }
+  } else return;
   }
 
   /**
@@ -165,7 +162,7 @@ export default class RetroBuffer {
    * @param {number} c1      - primary palette index
    * @param {number} [c2]    - secondary index for dithering (defaults to c1)
    */
-  pset(x, y, c1, c2 = c1, mix=0.5) {
+  pset(x, y, c1, c2 = c1, mix = 0.5) {
     x |= 0; 
     y |= 0;
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) return;
@@ -174,30 +171,22 @@ export default class RetroBuffer {
     const slot = ((y & 3) << 2) | (x & 3);
     const th   = this.dither[slot];
 
-    const pi = this.paletteCount;
-    const i1 = ((c1 % pi) + pi) % pi;
-    const i2 = ((c2 % pi) + pi) % pi;
-
-    const threshold = Math.floor(mix * 255);
-    const candidate = (th < threshold ? i1 : i2);
+  const pi = this.paletteCount;
+  const i1 = ((c1 % pi) + pi) % pi;
+  const i2 = ((c2 % pi) + pi) % pi;
+  const threshold = (mix * 255) | 0;
+  const candidate = th < threshold ? i1 : i2;
 
     // Lookup what’s already in the buffer
-    const existing = this.screenBuffer[idx];
-
-    // Final pixel = colorTable[existing][candidate]
-    const finalIdx = this.colorTable[ existing * pi + candidate ];
-
-    this.screenBuffer[idx] = finalIdx;
+  const e = this.screenBuffer[idx];
+  this.screenBuffer[idx] = this.colorTable[e * pi + candidate];
   }
 
   /**
    * Clear the screen buffer to a given palette index (default 0)
    * @param {number} colorIndex - palette index to fill
    */
-  clear(colorIndex = 0) {
-    const ci = ((colorIndex % this.paletteCount) + this.paletteCount) % this.paletteCount;
-    this.screenBuffer.fill(ci);
-  }
+  clear(colorIndex = 0) { this.screenBuffer.fill(((colorIndex % this.paletteCount) + this.paletteCount) % this.paletteCount); }
 
   /**
    * Blit a rectangle from an arbitrary RAM page (each page is width×height bytes)
@@ -214,8 +203,8 @@ export default class RetroBuffer {
    */
   blitFromPage(p, dx, dy, sx, sy, w, h) {
     // 1) Check page bounds
-    if (p < 0 || p >= this.pages) return;
-    const pageOffset = p * this.pageSize; // start of page p in this.ram
+  if (p < 0 || p >= this.pages) return;
+  const pageOffset = p * this.pageSize;
 
     // 2) Loop over each row of the h×w block
     for (let yy = 0; yy < h; yy++) {
@@ -229,12 +218,8 @@ export default class RetroBuffer {
 
         // 4) Compute the index within page p
         const srcIdx = pageOffset + srcY * this.width + srcX;
-        const colorIndex = this.ram[srcIdx];
-
-        // 5) Always call pset(), even if colorIndex===0.
-        //    Your colorTable should already map (existing, 0) → existing,
-        //    effectively making palette index 0 “transparent.”
-        this.pset(dx + xx, dy + yy, colorIndex);
+  const colorIndex = this.ram[srcIdx];
+  this.pset(dx + xx, dy + yy, colorIndex);
       }
     }
   }
@@ -266,8 +251,7 @@ export default class RetroBuffer {
         if (srcX < 0 || srcX >= this.width) continue;
 
         const srcIdx = pageOffset + srcY * this.width + srcX;
-        const colorIndex = this.ram[srcIdx];
-        this.pset(dx + xx, dy + yy, colorIndex);
+  this.pset(dx + xx, dy + yy, this.ram[srcIdx]);
       }
     }
   }
@@ -284,29 +268,19 @@ export default class RetroBuffer {
    * @param {number} [c2]  – secondary palette index for dithering (defaults to c1)
    */
   line(x0, y0, x1, y1, c1, c2 = c1, mix=0.5) {
-    // Force integer coordinates
-    x0 |= 0;  y0 |= 0;
-    x1 |= 0;  y1 |= 0;
-
-    let dx = Math.abs(x1 - x0);
-    let dy = Math.abs(y1 - y0);
-
-    // Determine step direction for x and y
-    let sx = x0 < x1 ? 1 : -1;
-    let sy = y0 < y1 ? 1 : -1;
-
-    // Initial error term
-    let err = dx - dy;
+  x0 |= 0; y0 |= 0; x1 |= 0; y1 |= 0;
+  let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+  let sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy;
 
     while (true) {
-      // Plot current point
-      this.pset(x0, y0, c1, c2, mix);
+
+  this.pset(x0, y0, c1, c2, mix);
 
       // If we’ve reached the end coordinate, we’re done
       if (x0 === x1 && y0 === y1) break;
 
-      // Double‐error trick
-      let e2 = err << 1; // same as 2*err
+  let e2 = err << 1;
 
       if (e2 > -dy) {
         err -= dy;

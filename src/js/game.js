@@ -7,6 +7,7 @@ import LaserTurret from './core/LaserTurret.js';
 import ParticleSystem from './core/ParticleSystem.js';
 import tada from './sounds/tada.js';
 
+import Mirror from './core/Mirror.js';
 (function () {
   // --- Core state ---
   let lastFrameTime = performance.now();
@@ -14,7 +15,7 @@ import tada from './sounds/tada.js';
   let gamestate = 0;
   const LOADING = 0, TITLESCREEN = 2, GAMESCREEN = 1, GAMEOVER = 3;
 
-  const screenWidth = 240, screenHeight = 135;
+  const screenWidth = 480, screenHeight = 270;
   document.body.style = 'margin:0; background:black; overflow:hidden';
   let r, gameFont;
 
@@ -63,6 +64,8 @@ import tada from './sounds/tada.js';
   let clickables = [];
   // laser turrets in the scene
   let turrets = [];
+  // player movement speed (pixels per update tick) - slow tank-like speed
+  const TURRET_SPEED = 0.06; // pixels per ms; scaled by dt in update
   // mouse position in retro buffer coordinates
   let mouseX = -10, mouseY = -10;
   // mouse button state
@@ -88,6 +91,16 @@ import tada from './sounds/tada.js';
   clickables.push(new ClickableEntity(80, 10, 24, 24, 14, 16));
   clickables.push(new ClickableEntity(140, 40, 32, 20, 21, 23));
   clickables.push(new ClickableEntity(40, 80, 64, 28, 30, 32));
+  // add additional clickables
+  clickables.push(new ClickableEntity(220, 20, 28, 18, 12, 13));
+  clickables.push(new ClickableEntity(300, 60, 24, 24, 15, 18));
+  clickables.push(new ClickableEntity(360, 90, 32, 20, 22, 25));
+
+  // add a mirror into the scene
+  const mirror = new Mirror(200, 120, 12, 12, 14);
+  // flip orientation for variety
+  mirror.flipped = false;
+  clickables.push(mirror);
 
   // create a single laser turret at top-middle
   turrets = [];
@@ -119,30 +132,89 @@ import tada from './sounds/tada.js';
     },
 
     update(dt) {
+      // Player/turret movement: move the first turret with keyboard (WASD or arrows)
+      if (turrets.length > 0) {
+        const t = turrets[0];
+        let mvx = 0, mvy = 0;
+        if (Key.isDown(Key.LEFT) || Key.isDown(Key.a)) mvx -= 1;
+        if (Key.isDown(Key.RIGHT) || Key.isDown(Key.d)) mvx += 1;
+        if (Key.isDown(Key.UP) || Key.isDown(Key.w)) mvy -= 1;
+        if (Key.isDown(Key.DOWN) || Key.isDown(Key.s)) mvy += 1;
+        if (mvx !== 0 || mvy !== 0) {
+          // normalize diagonal movement
+          const mag = Math.hypot(mvx, mvy) || 1;
+          const nx = mvx / mag;
+          const ny = mvy / mag;
+          // apply movement scaled by dt
+          // apply movement scaled by dt and check collisions against active clickables
+          const nextX = t.x + nx * TURRET_SPEED * dt;
+          const nextY = t.y + ny * TURRET_SPEED * dt;
+          // turret bounding box for collision
+          const tb = { x: nextX, y: nextY, w: t.w, h: t.h };
+          // check overlap against any active clickable that blocks movement
+          let blocked = false;
+          for (let c of clickables) {
+            if (!c) continue;
+            const b = (typeof c.getBounds === 'function') ? c.getBounds() : null;
+            // treat mirrors (which always return bounds) and active clickables as obstacles
+            if (!b) continue;
+            // simple AABB overlap
+            if (tb.x < b.x + b.w && tb.x + tb.w > b.x && tb.y < b.y + b.h && tb.y + tb.h > b.y) {
+              blocked = true;
+              break;
+            }
+          }
+          if (!blocked) {
+            t.x = nextX;
+            t.y = nextY;
+            // clamp to screen bounds so turret stays visible
+            t.x = Math.max(0, Math.min(screenWidth - t.w, t.x));
+            t.y = Math.max(0, Math.min(screenHeight - t.h, t.y));
+          }
+        }
+      }
       if (Key.justReleased && Key.justReleased(Key.r)) playSound(soundBank.tada);
       // continuous firing while mouse button is held
       if (mouseDown && turrets.length > 0) {
-        const t = turrets[0];
-        const shot = t.fireAt(mouseX, mouseY, clickables);
-        // LaserTurret now returns single 'hit' which is the first collider along the ray
-        if (shot && shot.hit) {
-          const h = shot.hit;
-          if (h && h.entity && typeof h.entity.onClick === 'function') {
-            if (!holdToggledEntities.has(h.entity)) {
-              h.entity.onClick();
-              holdToggledEntities.add(h.entity);
+        // don't fire if cursor is inside any toggleable object (mouse clicks should be used instead)
+        let cursorInToggle = false;
+        for (let c of clickables) {
+          if (!c) continue;
+          if (typeof c.onClick === 'function' && typeof c.contains === 'function' && c.contains(mouseX, mouseY)) {
+            cursorInToggle = true;
+            break;
+          }
+        }
+        if (cursorInToggle) {
+          // skip firing while cursor is inside a togglable area
+        } else {
+          const t = turrets[0];
+          const shot = t.fireAt(mouseX, mouseY, clickables, r.width, r.height);
+          if (shot && shot.hits && shot.hits.length) {
+            // iterate hits in order; for laser hits call onLaserHit (not onClick)
+            for (let h of shot.hits) {
+              if (!h || !h.entity) continue;
+              if (typeof h.entity.onLaserHit === 'function' && !holdToggledEntities.has(h.entity)) {
+                h.entity.onLaserHit();
+                holdToggledEntities.add(h.entity);
+              }
+            }
+
+            // spawn particles for the first non-mirror hit only, periodically
+            let nonMirrorHit = shot.hits.find(h => h && h.entity && !h.entity.isMirror);
+            beamParticleTimer += dt;
+            if (beamParticleTimer >= BEAM_PARTICLE_PERIOD) {
+              beamParticleTimer = 0;
+              if (nonMirrorHit && particleSys) particleSys.spawn(nonMirrorHit.x, nonMirrorHit.y, 6, 36);
+            }
+          } else {
+            // no hit -> spawn a particle at the mouse/cursor position periodically while firing
+            beamParticleTimer += dt;
+            if (beamParticleTimer >= BEAM_PARTICLE_PERIOD) {
+              beamParticleTimer = 0;
+              if (particleSys) particleSys.spawn(mouseX, mouseY, 6, 36);
             }
           }
-
-          // spawn particles periodically while beam is hitting
-          beamParticleTimer += dt;
-          if (beamParticleTimer >= BEAM_PARTICLE_PERIOD) {
-            beamParticleTimer = 0;
-            if (particleSys) particleSys.spawn(h.x, h.y, 6, 36);
-          }
-        } else {
-          // no hit -> reset particle timer so we don't spawn when re-entering
-          beamParticleTimer = 0;
         }
       }
       // Ensure beam doesn't persist when not holding
@@ -289,10 +361,11 @@ import tada from './sounds/tada.js';
   function screenToGame(clientX, clientY) {
     const rect = r.canvas.getBoundingClientRect();
     // canvas is styled (CSS) to scale; map client coords into canvas pixels
-    const scaleX = r.canvas.width / rect.width;
-    const scaleY = r.canvas.height / rect.height;
-    const x = Math.floor((clientX - rect.left) * scaleX);
-    const y = Math.floor((clientY - rect.top) * scaleY);
+  // Use the RetroBuffer logical dimensions (r.width/r.height) to map to game pixel coords
+  const scaleX = r.width / rect.width;
+  const scaleY = r.height / rect.height;
+  const x = Math.floor((clientX - rect.left) * scaleX);
+  const y = Math.floor((clientY - rect.top) * scaleY);
     return { x, y };
   }
 
@@ -313,25 +386,45 @@ import tada from './sounds/tada.js';
       // First, let the single turret fire towards the clicked position; stop at first hit
       let handled = false;
       if (turrets.length > 0) {
-        const shot = turrets[0].fireAt(pos.x, pos.y, clickables);
-        if (shot && shot.hit) {
-          const h = shot.hit;
-          if (h && h.entity && typeof h.entity.onClick === 'function') {
-            h.entity.onClick();
-            handled = true;
-            if (particleSys) particleSys.spawn(h.x, h.y, 8, 36);
+        const shot = turrets[0].fireAt(pos.x, pos.y, clickables, r.width, r.height);
+        if (shot && shot.hits && shot.hits.length) {
+          // prefer toggling the first non-mirror hit; if none, toggle the first hit (mirror) which flips it
+          let nonMirror = shot.hits.find(h => h && h.entity && typeof h.entity.isMirror === 'undefined');
+          let first = shot.hits[0];
+          const target = nonMirror || first;
+          if (target && target.entity && typeof target.entity.onClick === 'function') {
+            // Mirrors should only toggle when clicked directly (cursor inside their bounds).
+            if (target.entity.isMirror) {
+              if (typeof target.entity.contains === 'function' && target.entity.contains(pos.x, pos.y)) {
+                target.entity.onClick();
+                handled = true;
+                // no particle for mirrors
+              }
+            } else {
+              target.entity.onClick();
+              handled = true;
+              // only spawn particle for non-mirror target
+              if (particleSys) particleSys.spawn(target.x, target.y, 8, 36);
+            }
           }
         }
+        // if turret shot didn't hit anything, but the beam endpoint equals the clicked position,
+        // spawn a particle at the cursor to indicate the beam landed there
+        if (!handled && shot && (!shot.hits || !shot.hits.length)) {
+          if (particleSys) particleSys.spawn(pos.x, pos.y, 8, 36);
+  }
       }
 
       if (!handled) {
         // fall back to direct clicking on clickables, from topmost to bottom; stop at first
         for (let i = clickables.length - 1; i >= 0; i--) {
           const c = clickables[i];
-          if (c.contains(pos.x, pos.y)) {
-            c.onClick();
-            handled = true;
-            break;
+          if (typeof c.contains === 'function' && c.contains(pos.x, pos.y)) {
+            if (typeof c.onClick === 'function') {
+              c.onClick();
+              handled = true;
+              break;
+            }
           }
         }
       }
