@@ -37,6 +37,7 @@ export default class ImmediateModeRenderer {
     }
 
     this.gl = gl;
+    this.vaoExt = gl.getExtension('OES_vertex_array_object');
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
 
     this.shapeProgram = createProgram(gl, SHAPE_VERTEX_SHADER_SOURCE, SHAPE_FRAGMENT_SHADER_SOURCE);
@@ -52,6 +53,9 @@ export default class ImmediateModeRenderer {
     this.shapeVertices = new Float32Array(this.maxShapeVertices * this.shapeStride);
     this.ellipseVertices = new Float32Array(this.maxEllipseVertices * this.ellipseStride);
     this.spriteVertices = new Float32Array(this.maxSpriteVertices * this.spriteStride);
+    this.shapeBufferByteSize = this.shapeVertices.byteLength;
+    this.ellipseBufferByteSize = this.ellipseVertices.byteLength;
+    this.spriteBufferByteSize = this.spriteVertices.byteLength;
     this.shapeVertexCount = 0;
     this.ellipseVertexCount = 0;
     this.spriteVertexCount = 0;
@@ -62,6 +66,12 @@ export default class ImmediateModeRenderer {
     this.clearIndex = 0;
     this.frameCleared = false;
     this.currentClipRect = null;
+    this.appliedClipRect = null;
+    this.activeProgram = null;
+    this.activeArrayBuffer = null;
+    this.activeTextureUnit = -1;
+    this.boundTextures = [];
+    this.activeVertexLayout = null;
 
     this.shapeBuffer = gl.createBuffer();
     this.ellipseBuffer = gl.createBuffer();
@@ -102,6 +112,9 @@ export default class ImmediateModeRenderer {
       paletteTexture: gl.getUniformLocation(this.spriteProgram, 'uPaletteTexture'),
       paletteSize: gl.getUniformLocation(this.spriteProgram, 'uPaletteSize'),
     };
+
+    this.initializeGpuBuffers();
+    this.initializeVertexLayouts();
 
     gl.viewport(0, 0, width, height);
     gl.disable(gl.BLEND);
@@ -184,6 +197,8 @@ export default class ImmediateModeRenderer {
     this.activeBatch = null;
     this.frameCleared = false;
     this.currentClipRect = null;
+    this.appliedClipRect = null;
+    this.activeVertexLayout = null;
   }
 
   clear(colorIndex = 0) {
@@ -205,11 +220,140 @@ export default class ImmediateModeRenderer {
     this.currentClipRect = rect;
   }
 
+  bindProgram(program) {
+    if (this.activeProgram === program) return;
+    this.gl.useProgram(program);
+    this.activeProgram = program;
+  }
+
+  bindArrayBuffer(buffer) {
+    if (this.activeArrayBuffer === buffer) return;
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+    this.activeArrayBuffer = buffer;
+  }
+
+  bindTexture(unit, texture) {
+    const gl = this.gl;
+    if (this.activeTextureUnit !== unit) {
+      gl.activeTexture(unit);
+      this.activeTextureUnit = unit;
+    }
+    const unitIndex = unit - gl.TEXTURE0;
+    if (this.boundTextures[unitIndex] === texture) return;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    this.boundTextures[unitIndex] = texture;
+  }
+
+  bindVertexLayout(type) {
+    if (this.activeVertexLayout === type) return;
+
+    const gl = this.gl;
+    const vaoExt = this.vaoExt;
+    if (vaoExt) {
+      if (type === 'shapes') vaoExt.bindVertexArrayOES(this.shapeVao);
+      else if (type === 'ellipses') vaoExt.bindVertexArrayOES(this.ellipseVao);
+      else if (type === 'sprites') vaoExt.bindVertexArrayOES(this.spriteVao);
+    } else if (type === 'shapes') {
+      this.setupShapeAttributes();
+    } else if (type === 'ellipses') {
+      this.setupEllipseAttributes();
+    } else if (type === 'sprites') {
+      this.setupSpriteAttributes();
+    }
+
+    this.activeVertexLayout = type;
+  }
+
+  initializeGpuBuffers() {
+    const gl = this.gl;
+    this.bindArrayBuffer(this.shapeBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.shapeBufferByteSize, gl.DYNAMIC_DRAW);
+    this.bindArrayBuffer(this.ellipseBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.ellipseBufferByteSize, gl.DYNAMIC_DRAW);
+    this.bindArrayBuffer(this.spriteBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.spriteBufferByteSize, gl.DYNAMIC_DRAW);
+    this.activeArrayBuffer = null;
+  }
+
+  createVertexArray(setup) {
+    if (!this.vaoExt) return null;
+    const vao = this.vaoExt.createVertexArrayOES();
+    this.vaoExt.bindVertexArrayOES(vao);
+    setup();
+    this.vaoExt.bindVertexArrayOES(null);
+    this.activeArrayBuffer = null;
+    return vao;
+  }
+
+  initializeVertexLayouts() {
+    this.shapeVao = this.createVertexArray(() => this.setupShapeAttributes());
+    this.ellipseVao = this.createVertexArray(() => this.setupEllipseAttributes());
+    this.spriteVao = this.createVertexArray(() => this.setupSpriteAttributes());
+  }
+
+  setupShapeAttributes() {
+    const gl = this.gl;
+    this.bindArrayBuffer(this.shapeBuffer);
+    gl.enableVertexAttribArray(this.shapeLocations.position);
+    gl.vertexAttribPointer(this.shapeLocations.position, 2, gl.FLOAT, false, this.shapeStride * 4, 0);
+    gl.enableVertexAttribArray(this.shapeLocations.colorIndex);
+    gl.vertexAttribPointer(this.shapeLocations.colorIndex, 1, gl.FLOAT, false, this.shapeStride * 4, 8);
+    gl.enableVertexAttribArray(this.shapeLocations.colorIndexB);
+    gl.vertexAttribPointer(this.shapeLocations.colorIndexB, 1, gl.FLOAT, false, this.shapeStride * 4, 12);
+    gl.enableVertexAttribArray(this.shapeLocations.ditherMix);
+    gl.vertexAttribPointer(this.shapeLocations.ditherMix, 1, gl.FLOAT, false, this.shapeStride * 4, 16);
+  }
+
+  setupEllipseAttributes() {
+    const gl = this.gl;
+    this.bindArrayBuffer(this.ellipseBuffer);
+    gl.enableVertexAttribArray(this.ellipseLocations.position);
+    gl.vertexAttribPointer(this.ellipseLocations.position, 2, gl.FLOAT, false, this.ellipseStride * 4, 0);
+    gl.enableVertexAttribArray(this.ellipseLocations.localOffset);
+    gl.vertexAttribPointer(this.ellipseLocations.localOffset, 2, gl.FLOAT, false, this.ellipseStride * 4, 8);
+    gl.enableVertexAttribArray(this.ellipseLocations.radius);
+    gl.vertexAttribPointer(this.ellipseLocations.radius, 2, gl.FLOAT, false, this.ellipseStride * 4, 16);
+    gl.enableVertexAttribArray(this.ellipseLocations.rotation);
+    gl.vertexAttribPointer(this.ellipseLocations.rotation, 1, gl.FLOAT, false, this.ellipseStride * 4, 24);
+    gl.enableVertexAttribArray(this.ellipseLocations.colorIndex);
+    gl.vertexAttribPointer(this.ellipseLocations.colorIndex, 1, gl.FLOAT, false, this.ellipseStride * 4, 28);
+    gl.enableVertexAttribArray(this.ellipseLocations.colorIndexB);
+    gl.vertexAttribPointer(this.ellipseLocations.colorIndexB, 1, gl.FLOAT, false, this.ellipseStride * 4, 32);
+    gl.enableVertexAttribArray(this.ellipseLocations.ditherMix);
+    gl.vertexAttribPointer(this.ellipseLocations.ditherMix, 1, gl.FLOAT, false, this.ellipseStride * 4, 36);
+  }
+
+  setupSpriteAttributes() {
+    const gl = this.gl;
+    this.bindArrayBuffer(this.spriteBuffer);
+    gl.enableVertexAttribArray(this.spriteLocations.position);
+    gl.vertexAttribPointer(this.spriteLocations.position, 2, gl.FLOAT, false, this.spriteStride * 4, 0);
+    gl.enableVertexAttribArray(this.spriteLocations.uv);
+    gl.vertexAttribPointer(this.spriteLocations.uv, 2, gl.FLOAT, false, this.spriteStride * 4, 8);
+    gl.enableVertexAttribArray(this.spriteLocations.remapSource);
+    gl.vertexAttribPointer(this.spriteLocations.remapSource, 4, gl.FLOAT, false, this.spriteStride * 4, 16);
+    gl.enableVertexAttribArray(this.spriteLocations.remapTarget);
+    gl.vertexAttribPointer(this.spriteLocations.remapTarget, 4, gl.FLOAT, false, this.spriteStride * 4, 32);
+  }
+
   applyClipState() {
     const gl = this.gl;
     const rect = this.currentClipRect;
+    const applied = this.appliedClipRect;
+    if (
+      rect === applied ||
+      (rect && applied &&
+        rect.x === applied.x &&
+        rect.y === applied.y &&
+        rect.w === applied.w &&
+        rect.h === applied.h)
+    ) {
+      return;
+    }
+
     if (!rect) {
       gl.disable(gl.SCISSOR_TEST);
+      this.appliedClipRect = null;
       return;
     }
 
@@ -223,11 +367,13 @@ export default class ImmediateModeRenderer {
     if (width <= 0 || height <= 0) {
       gl.enable(gl.SCISSOR_TEST);
       gl.scissor(0, 0, 0, 0);
+      this.appliedClipRect = { x: 0, y: 0, w: 0, h: 0 };
       return;
     }
 
     gl.enable(gl.SCISSOR_TEST);
     gl.scissor(x, this.height - (y + height), width, height);
+    this.appliedClipRect = { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
   }
 
   ensureFrameCleared() {
@@ -242,6 +388,7 @@ export default class ImmediateModeRenderer {
       1,
     );
     gl.disable(gl.SCISSOR_TEST);
+    this.appliedClipRect = null;
     gl.clear(gl.COLOR_BUFFER_BIT);
     this.applyClipState();
     this.frameCleared = true;
@@ -587,23 +734,11 @@ export default class ImmediateModeRenderer {
     const gl = this.gl;
     this.ensureFrameCleared();
     this.applyClipState();
-    gl.useProgram(this.shapeProgram);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.paletteTexture);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.shapeBuffer);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      this.shapeVertices.subarray(0, this.shapeVertexCount * this.shapeStride),
-      gl.DYNAMIC_DRAW,
-    );
-    gl.enableVertexAttribArray(this.shapeLocations.position);
-    gl.vertexAttribPointer(this.shapeLocations.position, 2, gl.FLOAT, false, this.shapeStride * 4, 0);
-    gl.enableVertexAttribArray(this.shapeLocations.colorIndex);
-    gl.vertexAttribPointer(this.shapeLocations.colorIndex, 1, gl.FLOAT, false, this.shapeStride * 4, 8);
-    gl.enableVertexAttribArray(this.shapeLocations.colorIndexB);
-    gl.vertexAttribPointer(this.shapeLocations.colorIndexB, 1, gl.FLOAT, false, this.shapeStride * 4, 12);
-    gl.enableVertexAttribArray(this.shapeLocations.ditherMix);
-    gl.vertexAttribPointer(this.shapeLocations.ditherMix, 1, gl.FLOAT, false, this.shapeStride * 4, 16);
+    this.bindProgram(this.shapeProgram);
+    this.bindTexture(gl.TEXTURE0, this.paletteTexture);
+    this.bindVertexLayout('shapes');
+    this.bindArrayBuffer(this.shapeBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.shapeVertices.subarray(0, this.shapeVertexCount * this.shapeStride));
     gl.drawArrays(gl.TRIANGLES, 0, this.shapeVertexCount);
 
     this.shapeVertexCount = 0;
@@ -615,29 +750,11 @@ export default class ImmediateModeRenderer {
     const gl = this.gl;
     this.ensureFrameCleared();
     this.applyClipState();
-    gl.useProgram(this.ellipseProgram);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.paletteTexture);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.ellipseBuffer);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      this.ellipseVertices.subarray(0, this.ellipseVertexCount * this.ellipseStride),
-      gl.DYNAMIC_DRAW,
-    );
-    gl.enableVertexAttribArray(this.ellipseLocations.position);
-    gl.vertexAttribPointer(this.ellipseLocations.position, 2, gl.FLOAT, false, this.ellipseStride * 4, 0);
-    gl.enableVertexAttribArray(this.ellipseLocations.localOffset);
-    gl.vertexAttribPointer(this.ellipseLocations.localOffset, 2, gl.FLOAT, false, this.ellipseStride * 4, 8);
-    gl.enableVertexAttribArray(this.ellipseLocations.radius);
-    gl.vertexAttribPointer(this.ellipseLocations.radius, 2, gl.FLOAT, false, this.ellipseStride * 4, 16);
-    gl.enableVertexAttribArray(this.ellipseLocations.rotation);
-    gl.vertexAttribPointer(this.ellipseLocations.rotation, 1, gl.FLOAT, false, this.ellipseStride * 4, 24);
-    gl.enableVertexAttribArray(this.ellipseLocations.colorIndex);
-    gl.vertexAttribPointer(this.ellipseLocations.colorIndex, 1, gl.FLOAT, false, this.ellipseStride * 4, 28);
-    gl.enableVertexAttribArray(this.ellipseLocations.colorIndexB);
-    gl.vertexAttribPointer(this.ellipseLocations.colorIndexB, 1, gl.FLOAT, false, this.ellipseStride * 4, 32);
-    gl.enableVertexAttribArray(this.ellipseLocations.ditherMix);
-    gl.vertexAttribPointer(this.ellipseLocations.ditherMix, 1, gl.FLOAT, false, this.ellipseStride * 4, 36);
+    this.bindProgram(this.ellipseProgram);
+    this.bindTexture(gl.TEXTURE0, this.paletteTexture);
+    this.bindVertexLayout('ellipses');
+    this.bindArrayBuffer(this.ellipseBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.ellipseVertices.subarray(0, this.ellipseVertexCount * this.ellipseStride));
     gl.drawArrays(gl.TRIANGLES, 0, this.ellipseVertexCount);
 
     this.ellipseVertexCount = 0;
@@ -649,25 +766,12 @@ export default class ImmediateModeRenderer {
     const gl = this.gl;
     this.ensureFrameCleared();
     this.applyClipState();
-    gl.useProgram(this.spriteProgram);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.paletteTexture);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.atlasTexture);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.spriteBuffer);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      this.spriteVertices.subarray(0, this.spriteVertexCount * this.spriteStride),
-      gl.DYNAMIC_DRAW,
-    );
-    gl.enableVertexAttribArray(this.spriteLocations.position);
-    gl.vertexAttribPointer(this.spriteLocations.position, 2, gl.FLOAT, false, this.spriteStride * 4, 0);
-    gl.enableVertexAttribArray(this.spriteLocations.uv);
-    gl.vertexAttribPointer(this.spriteLocations.uv, 2, gl.FLOAT, false, this.spriteStride * 4, 8);
-    gl.enableVertexAttribArray(this.spriteLocations.remapSource);
-    gl.vertexAttribPointer(this.spriteLocations.remapSource, 4, gl.FLOAT, false, this.spriteStride * 4, 16);
-    gl.enableVertexAttribArray(this.spriteLocations.remapTarget);
-    gl.vertexAttribPointer(this.spriteLocations.remapTarget, 4, gl.FLOAT, false, this.spriteStride * 4, 32);
+    this.bindProgram(this.spriteProgram);
+    this.bindTexture(gl.TEXTURE0, this.paletteTexture);
+    this.bindTexture(gl.TEXTURE1, this.atlasTexture);
+    this.bindVertexLayout('sprites');
+    this.bindArrayBuffer(this.spriteBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.spriteVertices.subarray(0, this.spriteVertexCount * this.spriteStride));
     gl.drawArrays(gl.TRIANGLES, 0, this.spriteVertexCount);
 
     this.spriteVertexCount = 0;
@@ -684,7 +788,12 @@ export default class ImmediateModeRenderer {
       this.ensureFrameCleared();
     }
 
+    if (this.vaoExt) {
+      this.vaoExt.bindVertexArrayOES(null);
+    }
     this.gl.disable(this.gl.SCISSOR_TEST);
+    this.appliedClipRect = null;
+    this.activeVertexLayout = null;
     this.activeBatch = null;
   }
 }
