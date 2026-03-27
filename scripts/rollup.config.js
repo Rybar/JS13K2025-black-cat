@@ -13,21 +13,15 @@ export default {
       warn(warning)
     },
   output: {
-    file: './dist/game-rollup.js',
-    // wrap global variables/functions into in IIFE so terser will rename them
+    file: './dist/game.js',
     format: 'iife',
     freeze: DEBUG,
     indent: DEBUG ? '  ' : false,
     preferConst: true,
-    // generate sourcemaps (development mode only)
-    //sourcemap: DEBUG,
-    // allow the use of onresize=onrotate=... and other space saver hacks
-    strict: false,
+    strict: true,
   },
   plugins: [
-    // embed images into source files as data URI
     dataurl(),
-    // TODO shouldn't I always run terser to debug the game I use?
     MINIFY &&
       terser({
         // Use when minifying an ES6 module.

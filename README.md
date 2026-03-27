@@ -1,75 +1,49 @@
-# Tiny JS Game Boilerplate
+# RetroBuffer Bootstrap
 
-This repository provides a small framework for building 13&nbsp;kB JavaScript games. It includes:
+This repository is a lightweight starting point for small indexed-color JavaScript games built around the current WebGL immediate-mode renderer.
 
-- **RetroBuffer** – an indexed colour framebuffer with drawing primitives.
-- **SoundBox** – a tiny synth for sound effects and music.
-- Rollup, Roadroller and other tools to generate minified builds.
+It currently ships with a small interactive demo instead of a full game so the repo stays focused on reusable engine and bootstrap code.
 
-## RetroBuffer overview
+## Included
 
-`src/js/game.js` loads `src/img/palette.webp` and creates a `RetroBuffer` once the atlas is ready:
+- An immediate-mode indexed-color renderer under `src/js/core/ImmediateModeEngine.js` and `src/js/core/immediate/`.
+- A particle stress-test demo in `src/js/game.js` that boots the engine and exercises the current primitive and sprite paths.
+- A production build that keeps output self-contained without JS13K-specific packing steps.
+
+## Getting Started
+
+- `npm start` builds `dist/game.js` in watch mode and serves the project with live reload.
+- `npm run build` creates a production bundle and a self-contained `dist/index.html`.
+- `npm run build:size` also runs Roadroller, writes packed artifacts to `dist/`, creates `dist/gamejam.zip` as a real distributable, and prints raw and zipped size numbers for the normal and packed builds.
+
+## Project Layout
+
+- `src/js/core/` contains the active engine code, the `immediate/` renderer internals, and `musicplayer.js` if you want to bring audio back later.
+- `src/js/game.js` is the demo entrypoint you replace when starting a new game.
+- `src/img/palette.webp` contains the palette row and sprite/font source data used by the current renderer.
+
+## Starting Your Own Game
+
+The current demo is intentionally small. Replace the logic in `src/js/game.js` with your own update and draw loop, or split it into game-specific modules once you know the structure you want.
+
+The main boot pattern is:
 
 ```javascript
-const atlasURL = 'DATAURL:src/img/palette.webp';
-loadAtlas(atlasURL, () => {
-  r = new RetroBuffer(screenWidth, screenHeight, atlasImage, 10);
-  document.getElementById('game').appendChild(r.canvas);
-  resizeCanvas(r.canvas, screenWidth, screenHeight);
-  gameFont = new SpriteFont(r);
-  Game.init({ r, Key, screenWidth, screenHeight, gameFont });
-});
-```
-
-RetroBuffer stores a palette and multiple pages of 8‑bit RAM. Use methods such as `pset`, `line`, `rectFill`, `blitFromPage` or `scaledBlit` to draw to the screen buffer, then call `r.render()` each frame. Colours can be remapped through the `colorTable` for palette effects.
-
-## Creating a game
-
-Game modules live in `src/js/games`. The file `games/template.js` contains a minimal skeleton:
-
-```javascript
-export default {
-  init({ r, Key, screenWidth, screenHeight, gameFont }) { /* setup */ },
-  titleUpdate(dt) {},
-  titleDraw() {},
-  update(dt) {},
-  draw() {},
-  gameOverUpdate(dt) {},
-  gameOverDraw() {}
+const atlasImage = new Image();
+atlasImage.src = 'DATAURL:src/img/palette.webp';
+atlasImage.onload = () => {
+  const engine = new ImmediateModeEngine(480, 270, atlasImage);
+  document.getElementById('game').appendChild(engine.canvas);
+  resizeCanvas(engine.canvas, 480, 270);
+  requestAnimationFrame(loop);
 };
 ```
 
-To start your own game, copy `template.js` to a new file and fill in the functions. Then edit `src/js/game.js` and change the import at the top:
+From there, draw with methods such as `pset`, `line`, `rectFill`, `circleFill`, `ellipseFill`, `polygonFill`, `drawSprite`, and `drawAtlasSprite` inside your frame loop.
 
-```javascript
-import Game from './games/demo.js'; // replace with your module
-```
+## Notes
 
-The engine handles input, timing and simple state transitions between the title screen, game play and game over screens.
+- The repo still favors small bundles and simple runtime behavior.
+- JS13K-specific constraints and packing tricks are not part of the default workflow, but optional size-pack tooling is available when you want to inspect packed output.
 
-## Playing sounds
-
-Sound effects exported from [SoundBox](http://sb.bitsnbites.eu/) are plain JavaScript objects stored under `src/js/sounds`. To use them:
-
-```javascript
-import { initAudio, playSound } from './core/utils.js';
-import tada from './sounds/tada.js';
-
-let soundBank;
-function initGameData() {
-  soundBank = initAudio([{ name: 'tada', data: tada }]);
-}
-
-// later on
-playSound(soundBank.tada);
-```
-
-The file `sound_assets_editable.md` keeps a bunch of data URLs from last year's entry so they can be reloaded in SoundBox for editing.
-
-## Development
-
-- `npm start` builds the project and serves `dist/` with live reload.
-- `npm run build` generates a compressed build in `dist/`. The final zip step requires `advzip`; if it is missing the command may fail.
-
-
-This boilerplate is released under the MIT license.
+This project is released under the MIT license.

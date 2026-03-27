@@ -1,67 +1,906 @@
-[
-  { "index": 0, "name": "gray", "rgb": [103, 103, 103] },
-  { "index": 1, "name": "black", "rgb": [0, 0, 0] },
-  { "index": 2, "name": "white", "rgb": [255, 255, 255] },
-  { "index": 3, "name": "black", "rgb": [53, 53, 53] },
-  { "index": 4, "name": "gray", "rgb": [103, 103, 103] },
-  { "index": 5, "name": "lightgray", "rgb": [192, 192, 192] },
-  { "index": 6, "name": "yellow", "rgb": [255, 255, 0] },
-  { "index": 7, "name": "olive", "rgb": [128, 128, 0] },
-  { "index": 8, "name": "green", "rgb": [0, 128, 0] },
-  { "index": 9, "name": "teal", "rgb": [0, 128, 128] },
-  { "index": 10, "name": "skyblue", "rgb": [135, 206, 235] },
-  { "index": 11, "name": "turquoise", "rgb": [64, 224, 208] },
-  { "index": 12, "name": "cyan", "rgb": [0, 255, 255] },
-  { "index": 13, "name": "blue", "rgb": [0, 0, 255] },
-  { "index": 14, "name": "navy", "rgb": [0, 0, 128] },
-  { "index": 15, "name": "slateblue", "rgb": [106, 90, 205] },
-  { "index": 16, "name": "purple", "rgb": [128, 0, 128] },
-  { "index": 17, "name": "indigo", "rgb": [75, 0, 130] },
-  { "index": 18, "name": "orchid", "rgb": [218, 112, 214] },
-  { "index": 19, "name": "violet", "rgb": [238, 130, 238] },
-  { "index": 20, "name": "pink", "rgb": [255, 192, 203] },
-  { "index": 21, "name": "deeppink", "rgb": [255, 20, 147] },
-  { "index": 22, "name": "crimson", "rgb": [220, 20, 60] },
-  { "index": 23, "name": "firebrick", "rgb": [178, 34, 34] },
-  { "index": 24, "name": "red", "rgb": [255, 0, 0] },
-  { "index": 25, "name": "tomato", "rgb": [255, 99, 71] },
-  { "index": 26, "name": "coral", "rgb": [255, 127, 80] },
-  { "index": 27, "name": "orange", "rgb": [255, 165, 0] },
-  { "index": 28, "name": "gold", "rgb": [255, 215, 0] },
-  { "index": 29, "name": "khaki", "rgb": [240, 230, 140] },
-  { "index": 30, "name": "tan", "rgb": [210, 180, 140] },
-  { "index": 31, "name": "lightgray", "rgb": [192, 192, 192] },
-  { "index": 32, "name": "darkgray", "rgb": [169, 169, 169] },
-  { "index": 33, "name": "gray", "rgb": [128, 128, 128] },
-  { "index": 34, "name": "maroon", "rgb": [128, 0, 0] },
-  { "index": 35, "name": "brown", "rgb": [165, 42, 42] },
-  { "index": 36, "name": "chocolate", "rgb": [210, 105, 30] },
-  { "index": 37, "name": "red", "rgb": [255, 0, 0] },
-  { "index": 38, "name": "deeppink", "rgb": [255, 20, 147] },
-  { "index": 39, "name": "orchid", "rgb": [218, 112, 214] },
-  { "index": 40, "name": "purple", "rgb": [128, 0, 128] },
-  { "index": 41, "name": "indigo", "rgb": [75, 0, 130] },
-  { "index": 42, "name": "blue", "rgb": [0, 0, 255] },
-  { "index": 43, "name": "teal", "rgb": [0, 128, 128] },
-  { "index": 44, "name": "green", "rgb": [0, 128, 0] },
-  { "index": 45, "name": "olive", "rgb": [128, 128, 0] },
-  { "index": 46, "name": "yellow", "rgb": [255, 255, 0] },
-  { "index": 47, "name": "gold", "rgb": [255, 215, 0] },
-  { "index": 48, "name": "orange", "rgb": [255, 165, 0] },
-  { "index": 49, "name": "coral", "rgb": [255, 127, 80] },
-  { "index": 50, "name": "salmon", "rgb": [250, 128, 114] },
-  { "index": 51, "name": "tomato", "rgb": [255, 99, 71] },
-  { "index": 52, "name": "crimson", "rgb": [220, 20, 60] },
-  { "index": 53, "name": "firebrick", "rgb": [178, 34, 34] },
-  { "index": 54, "name": "brown", "rgb": [165, 42, 42] },
-  { "index": 55, "name": "chocolate", "rgb": [210, 105, 30] },
-  { "index": 56, "name": "tan", "rgb": [210, 180, 140] },
-  { "index": 57, "name": "khaki", "rgb": [240, 230, 140] },
-  { "index": 58, "name": "lightgreen", "rgb": [144, 238, 144] },
-  { "index": 59, "name": "turquoise", "rgb": [64, 224, 208] },
-  { "index": 60, "name": "skyblue", "rgb": [135, 206, 235] },
-  { "index": 61, "name": "slateblue", "rgb": [106, 90, 205] },
-  { "index": 62, "name": "violet", "rgb": [238, 130, 238] },
-  { "index": 63, "name": "deeppink", "rgb": [255, 20, 147] },
-  { "index": 64, "name": "magenta", "rgb": [255, 0, 255] }
-]
+{
+  "paletteName": "custom-palette-65-rgb",
+  "sourceImage": "src/assets/custom-palette-65-RGB.png",
+  "generatedAt": "2026-03-26",
+  "notes": [
+    "Names are descriptive and palette-specific rather than mapped to CSS color keywords.",
+    "Indexes 58-63 are repeated #FF00FF swatches that appear reserved for mask, transparency, or debug use.",
+    "Index 4 duplicates index 0, index 64 duplicates index 0, and indexes 59-63 duplicate index 58."
+  ],
+  "colors": [
+    {
+      "index": 0,
+      "name": "stone gray",
+      "hex": "#676767",
+      "rgb": [
+        103,
+        103,
+        103
+      ]
+    },
+    {
+      "index": 1,
+      "name": "pitch black",
+      "hex": "#000000",
+      "rgb": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "index": 2,
+      "name": "paper white",
+      "hex": "#FFFFFF",
+      "rgb": [
+        255,
+        255,
+        255
+      ]
+    },
+    {
+      "index": 3,
+      "name": "soot gray",
+      "hex": "#353535",
+      "rgb": [
+        53,
+        53,
+        53
+      ]
+    },
+    {
+      "index": 4,
+      "name": "stone gray",
+      "hex": "#676767",
+      "rgb": [
+        103,
+        103,
+        103
+      ],
+      "duplicateOf": 0
+    },
+    {
+      "index": 5,
+      "name": "weathered gray",
+      "hex": "#9A9A9A",
+      "rgb": [
+        154,
+        154,
+        154
+      ]
+    },
+    {
+      "index": 6,
+      "name": "pale silver",
+      "hex": "#CCCCCC",
+      "rgb": [
+        204,
+        204,
+        204
+      ]
+    },
+    {
+      "index": 7,
+      "name": "bog olive",
+      "hex": "#3F4328",
+      "rgb": [
+        63,
+        67,
+        40
+      ]
+    },
+    {
+      "index": 8,
+      "name": "moss green",
+      "hex": "#5F7132",
+      "rgb": [
+        95,
+        113,
+        50
+      ]
+    },
+    {
+      "index": 9,
+      "name": "olive lime",
+      "hex": "#94AD39",
+      "rgb": [
+        148,
+        173,
+        57
+      ]
+    },
+    {
+      "index": 10,
+      "name": "pear green",
+      "hex": "#C2D64F",
+      "rgb": [
+        194,
+        214,
+        79
+      ]
+    },
+    {
+      "index": 11,
+      "name": "sunlit chartreuse",
+      "hex": "#EFF37C",
+      "rgb": [
+        239,
+        243,
+        124
+      ]
+    },
+    {
+      "index": 12,
+      "name": "pale lichen",
+      "hex": "#E3E6AC",
+      "rgb": [
+        227,
+        230,
+        172
+      ]
+    },
+    {
+      "index": 13,
+      "name": "sage green",
+      "hex": "#A5C67C",
+      "rgb": [
+        165,
+        198,
+        124
+      ]
+    },
+    {
+      "index": 14,
+      "name": "fern green",
+      "hex": "#739A70",
+      "rgb": [
+        115,
+        154,
+        112
+      ]
+    },
+    {
+      "index": 15,
+      "name": "dusky sage",
+      "hex": "#4D6659",
+      "rgb": [
+        77,
+        102,
+        89
+      ]
+    },
+    {
+      "index": 16,
+      "name": "slate teal",
+      "hex": "#343F41",
+      "rgb": [
+        52,
+        63,
+        65
+      ]
+    },
+    {
+      "index": 17,
+      "name": "ink blue",
+      "hex": "#282E3B",
+      "rgb": [
+        40,
+        46,
+        59
+      ]
+    },
+    {
+      "index": 18,
+      "name": "midnight navy",
+      "hex": "#1A1F2E",
+      "rgb": [
+        26,
+        31,
+        46
+      ]
+    },
+    {
+      "index": 19,
+      "name": "deep ocean",
+      "hex": "#1E314B",
+      "rgb": [
+        30,
+        49,
+        75
+      ]
+    },
+    {
+      "index": 20,
+      "name": "storm blue",
+      "hex": "#2F4C6C",
+      "rgb": [
+        47,
+        76,
+        108
+      ]
+    },
+    {
+      "index": 21,
+      "name": "mineral teal",
+      "hex": "#3D80A3",
+      "rgb": [
+        61,
+        128,
+        163
+      ]
+    },
+    {
+      "index": 22,
+      "name": "bright aqua",
+      "hex": "#63C4CC",
+      "rgb": [
+        99,
+        196,
+        204
+      ]
+    },
+    {
+      "index": 23,
+      "name": "seafoam",
+      "hex": "#9AE5D5",
+      "rgb": [
+        154,
+        229,
+        213
+      ]
+    },
+    {
+      "index": 24,
+      "name": "frost white",
+      "hex": "#E5EFEF",
+      "rgb": [
+        229,
+        239,
+        239
+      ]
+    },
+    {
+      "index": 25,
+      "name": "mist blue",
+      "hex": "#BAC9CD",
+      "rgb": [
+        186,
+        201,
+        205
+      ]
+    },
+    {
+      "index": 26,
+      "name": "cloud blue",
+      "hex": "#8D99A4",
+      "rgb": [
+        141,
+        153,
+        164
+      ]
+    },
+    {
+      "index": 27,
+      "name": "dusk periwinkle",
+      "hex": "#696F80",
+      "rgb": [
+        105,
+        111,
+        128
+      ]
+    },
+    {
+      "index": 28,
+      "name": "gunmetal blue",
+      "hex": "#414453",
+      "rgb": [
+        65,
+        68,
+        83
+      ]
+    },
+    {
+      "index": 29,
+      "name": "dusty lilac",
+      "hex": "#B8A1C2",
+      "rgb": [
+        184,
+        161,
+        194
+      ]
+    },
+    {
+      "index": 30,
+      "name": "muted amethyst",
+      "hex": "#7E659B",
+      "rgb": [
+        126,
+        101,
+        155
+      ]
+    },
+    {
+      "index": 31,
+      "name": "royal plum",
+      "hex": "#5C3A6F",
+      "rgb": [
+        92,
+        58,
+        111
+      ]
+    },
+    {
+      "index": 32,
+      "name": "indigo plum",
+      "hex": "#39275E",
+      "rgb": [
+        57,
+        39,
+        94
+      ]
+    },
+    {
+      "index": 33,
+      "name": "blackberry",
+      "hex": "#2F193E",
+      "rgb": [
+        47,
+        25,
+        62
+      ]
+    },
+    {
+      "index": 34,
+      "name": "mulberry wine",
+      "hex": "#4E1A49",
+      "rgb": [
+        78,
+        26,
+        73
+      ]
+    },
+    {
+      "index": 35,
+      "name": "cranberry",
+      "hex": "#7B234C",
+      "rgb": [
+        123,
+        35,
+        76
+      ]
+    },
+    {
+      "index": 36,
+      "name": "raspberry rose",
+      "hex": "#B23657",
+      "rgb": [
+        178,
+        54,
+        87
+      ]
+    },
+    {
+      "index": 37,
+      "name": "dusty salmon",
+      "hex": "#D16974",
+      "rgb": [
+        209,
+        105,
+        116
+      ]
+    },
+    {
+      "index": 38,
+      "name": "apricot blush",
+      "hex": "#EDAAA3",
+      "rgb": [
+        237,
+        170,
+        163
+      ]
+    },
+    {
+      "index": 39,
+      "name": "sand gold",
+      "hex": "#EECB90",
+      "rgb": [
+        238,
+        203,
+        144
+      ]
+    },
+    {
+      "index": 40,
+      "name": "honey amber",
+      "hex": "#E1A845",
+      "rgb": [
+        225,
+        168,
+        69
+      ]
+    },
+    {
+      "index": 41,
+      "name": "toasted orange",
+      "hex": "#C57835",
+      "rgb": [
+        197,
+        120,
+        53
+      ]
+    },
+    {
+      "index": 42,
+      "name": "rust brown",
+      "hex": "#8D4830",
+      "rgb": [
+        141,
+        72,
+        48
+      ]
+    },
+    {
+      "index": 43,
+      "name": "ember coral",
+      "hex": "#E47259",
+      "rgb": [
+        228,
+        114,
+        89
+      ]
+    },
+    {
+      "index": 44,
+      "name": "brick red",
+      "hex": "#C33C40",
+      "rgb": [
+        195,
+        60,
+        64
+      ]
+    },
+    {
+      "index": 45,
+      "name": "garnet wine",
+      "hex": "#8D3649",
+      "rgb": [
+        141,
+        54,
+        73
+      ]
+    },
+    {
+      "index": 46,
+      "name": "mahogany",
+      "hex": "#5C2B34",
+      "rgb": [
+        92,
+        43,
+        52
+      ]
+    },
+    {
+      "index": 47,
+      "name": "coffee bark",
+      "hex": "#3C252B",
+      "rgb": [
+        60,
+        37,
+        43
+      ]
+    },
+    {
+      "index": 48,
+      "name": "walnut brown",
+      "hex": "#684039",
+      "rgb": [
+        104,
+        64,
+        57
+      ]
+    },
+    {
+      "index": 49,
+      "name": "canyon clay",
+      "hex": "#825646",
+      "rgb": [
+        130,
+        86,
+        70
+      ]
+    },
+    {
+      "index": 50,
+      "name": "dusty terracotta",
+      "hex": "#B77862",
+      "rgb": [
+        183,
+        120,
+        98
+      ]
+    },
+    {
+      "index": 51,
+      "name": "mauve taupe",
+      "hex": "#7D595D",
+      "rgb": [
+        125,
+        89,
+        93
+      ]
+    },
+    {
+      "index": 52,
+      "name": "aubergine brown",
+      "hex": "#533B41",
+      "rgb": [
+        83,
+        59,
+        65
+      ]
+    },
+    {
+      "index": 53,
+      "name": "smoky plum",
+      "hex": "#3F333B",
+      "rgb": [
+        63,
+        51,
+        59
+      ]
+    },
+    {
+      "index": 54,
+      "name": "midnight plum",
+      "hex": "#2B222A",
+      "rgb": [
+        43,
+        34,
+        42
+      ]
+    },
+    {
+      "index": 55,
+      "name": "weathered bark",
+      "hex": "#6D4E4B",
+      "rgb": [
+        109,
+        78,
+        75
+      ]
+    },
+    {
+      "index": 56,
+      "name": "mushroom taupe",
+      "hex": "#867066",
+      "rgb": [
+        134,
+        112,
+        102
+      ]
+    },
+    {
+      "index": 57,
+      "name": "dry straw",
+      "hex": "#B49D7E",
+      "rgb": [
+        180,
+        157,
+        126
+      ]
+    },
+    {
+      "index": 58,
+      "name": "mask magenta",
+      "hex": "#FF00FF",
+      "rgb": [
+        255,
+        0,
+        255
+      ],
+      "role": "reserved"
+    },
+    {
+      "index": 59,
+      "name": "mask magenta",
+      "hex": "#FF00FF",
+      "rgb": [
+        255,
+        0,
+        255
+      ],
+      "duplicateOf": 58,
+      "role": "reserved"
+    },
+    {
+      "index": 60,
+      "name": "mask magenta",
+      "hex": "#FF00FF",
+      "rgb": [
+        255,
+        0,
+        255
+      ],
+      "duplicateOf": 58,
+      "role": "reserved"
+    },
+    {
+      "index": 61,
+      "name": "mask magenta",
+      "hex": "#FF00FF",
+      "rgb": [
+        255,
+        0,
+        255
+      ],
+      "duplicateOf": 58,
+      "role": "reserved"
+    },
+    {
+      "index": 62,
+      "name": "mask magenta",
+      "hex": "#FF00FF",
+      "rgb": [
+        255,
+        0,
+        255
+      ],
+      "duplicateOf": 58,
+      "role": "reserved"
+    },
+    {
+      "index": 63,
+      "name": "mask magenta",
+      "hex": "#FF00FF",
+      "rgb": [
+        255,
+        0,
+        255
+      ],
+      "duplicateOf": 58,
+      "role": "reserved"
+    },
+    {
+      "index": 64,
+      "name": "stone gray",
+      "hex": "#676767",
+      "rgb": [
+        103,
+        103,
+        103
+      ],
+      "duplicateOf": 0
+    }
+  ],
+  "groups": [
+    {
+      "name": "Core Neutrals",
+      "kind": "ramp",
+      "indexes": [
+        1,
+        3,
+        0,
+        5,
+        6,
+        2
+      ],
+      "description": "The main grayscale ramp from black through paper white."
+    },
+    {
+      "name": "Marsh Greens",
+      "kind": "ramp",
+      "indexes": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "description": "Olive-to-chartreuse greens with a swampy, sunlit feel."
+    },
+    {
+      "name": "Sage Transition",
+      "kind": "ramp",
+      "indexes": [
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "description": "A soft bridge from pale plant tones into cool slate teal."
+    },
+    {
+      "name": "Night Water",
+      "kind": "ramp",
+      "indexes": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "description": "Deep ink blues that lift into aqua, seafoam, and icy highlight tones."
+    },
+    {
+      "name": "Misty Blue-Grays",
+      "kind": "ramp",
+      "indexes": [
+        24,
+        25,
+        26,
+        27,
+        28
+      ],
+      "description": "Cool atmospheric neutrals for fog, metal, and distant scenery."
+    },
+    {
+      "name": "Velvet Purples",
+      "kind": "ramp",
+      "indexes": [
+        29,
+        30,
+        31,
+        32,
+        33
+      ],
+      "description": "Muted lilac down through rich plum and blackberry shadows."
+    },
+    {
+      "name": "Berry Sunset",
+      "kind": "ramp",
+      "indexes": [
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "description": "A warm progression from mulberry and cranberry into peachy sunset light."
+    },
+    {
+      "name": "Amber Metals",
+      "kind": "ramp",
+      "indexes": [
+        39,
+        40,
+        41,
+        42
+      ],
+      "description": "Golden sand through burnt orange into rusted brown."
+    },
+    {
+      "name": "Ember Reds",
+      "kind": "ramp",
+      "indexes": [
+        43,
+        44,
+        45,
+        46,
+        47
+      ],
+      "description": "Coral heat fading into brick, wine, mahogany, and bark-dark shadow."
+    },
+    {
+      "name": "Earth Browns",
+      "kind": "ramp",
+      "indexes": [
+        48,
+        49,
+        50
+      ],
+      "description": "Walnut, clay, and terracotta earth tones."
+    },
+    {
+      "name": "Smoke Plums",
+      "kind": "ramp",
+      "indexes": [
+        51,
+        52,
+        53,
+        54
+      ],
+      "description": "Dusky mauve-browns stepping down into near-black plum."
+    },
+    {
+      "name": "Bark Neutrals",
+      "kind": "group",
+      "indexes": [
+        55,
+        56,
+        57
+      ],
+      "description": "Natural wood, mushroom, and dry-grass supporting tones."
+    },
+    {
+      "name": "Reserved Mask Slots",
+      "kind": "group",
+      "indexes": [
+        58,
+        59,
+        60,
+        61,
+        62,
+        63
+      ],
+      "description": "Repeated magenta placeholders that likely should stay out of normal art ramps."
+    },
+    {
+      "name": "Duplicate Utility Grays",
+      "kind": "group",
+      "indexes": [
+        0,
+        4,
+        64
+      ],
+      "description": "Three identical medium-gray entries that can serve as spare or sentinel slots."
+    }
+  ],
+  "purpose": "Documentation for chat agents so they can reason about the palette by name, mood, and usable ramps.",
+  "paletteSummary": "A muted retro palette built around stone neutrals, marshy yellow-greens, deep night-water blues, velvet purples, berry reds, and warm clay-to-amber earth tones.",
+  "agentGuidance": {
+    "overallMood": "Moody, earthy, slightly haunted, and best suited to dusk, overgrowth, candlelight, rust, and weathered materials.",
+    "strongestHighlights": [
+      2,
+      11,
+      23,
+      24,
+      38,
+      39,
+      40
+    ],
+    "strongestShadows": [
+      1,
+      17,
+      18,
+      33,
+      47,
+      54
+    ],
+    "dominantFamilies": [
+      "neutral grays",
+      "olive and chartreuse greens",
+      "ink and ocean blues",
+      "dusty violets and plums",
+      "berry reds",
+      "amber, rust, bark, and clay browns"
+    ],
+    "reservedIndexes": [
+      58,
+      59,
+      60,
+      61,
+      62,
+      63
+    ],
+    "duplicateIndexes": [
+      {
+        "source": 0,
+        "duplicates": [
+          4,
+          64
+        ]
+      },
+      {
+        "source": 58,
+        "duplicates": [
+          59,
+          60,
+          61,
+          62,
+          63
+        ]
+      }
+    ],
+    "usageNotes": [
+      "The palette is strongest when cool night tones are contrasted with a few warm ember or amber accents.",
+      "The green and blue ramps connect well through indexes 12-16 and can shade foliage, stone, fog, or water.",
+      "The magenta block should usually be treated as reserved rather than as part of the artistic palette."
+    ]
+  }
+}
