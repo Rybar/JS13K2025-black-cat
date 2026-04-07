@@ -8,6 +8,21 @@
  * const charset = 'data:image/png;base64,123456badc0ffee...';
  */
 import { readFileSync } from 'fs';
+import { extname } from 'path';
+
+const MIME_TYPES = {
+  '.gif': 'image/gif',
+  '.jpeg': 'image/jpeg',
+  '.jpg': 'image/jpeg',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+};
+
+function getMimeType(imageFilePath) {
+  const extension = extname(imageFilePath).toLowerCase();
+  return MIME_TYPES[extension] ?? 'application/octet-stream';
+}
 
 export const dataurl = () => ({
     name: 'rollup-plugin-dataurl',
@@ -15,18 +30,9 @@ export const dataurl = () => ({
     transform: (source, id) => {
       let transformedCode = source;
 
-      // find all DATAURL placeholders, capture the filepaths
-      const matches = [...source.matchAll(/ (.*) = 'DATAURL:(.*)'/g)];
-
-      matches.forEach(([, variable, imageFilePath]) => {
-        console.log('found ', variable, imageFilePath);
-        // read the image binary content
+      transformedCode = transformedCode.replace(/'DATAURL:([^']+)'/g, (match, imageFilePath) => {
         const data = readFileSync(`./${imageFilePath}`);
-        // replace the placeholder by a base64 encoded dataurl of the image
-        transformedCode = transformedCode.replace(
-          ` ${variable} = 'DATAURL:${imageFilePath}'`,
-          ` ${variable} = 'data:image/webp;base64,${data.toString('base64')}'`
-        );
+        return `'data:${getMimeType(imageFilePath)};base64,${data.toString('base64')}'`;
       });
 
       console.log('dataurl plugin done with', id);

@@ -1,23 +1,65 @@
 import ImmediateModeRenderer from './immediate/ImmediateModeRenderer.js';
 
 export default class ImmediateModeEngine {
-  constructor(width, height, paletteImage) {
-    this.renderer = new ImmediateModeRenderer(width, height, paletteImage);
+  constructor(width, height, assets) {
+    const font = assets.font ?? {};
+    const spriteAtlasEntries = Object.entries(assets.spriteAtlases ?? {});
+    if (!assets.paletteImage) {
+      throw new Error('ImmediateModeEngine requires a paletteImage.');
+    }
+    if (!font.image) {
+      throw new Error('ImmediateModeEngine requires a font atlas image.');
+    }
+    if (spriteAtlasEntries.length === 0) {
+      throw new Error('ImmediateModeEngine requires at least one sprite atlas.');
+    }
+
+    this.fontAtlasName = font.atlasName ?? 'font';
+    this.spriteAtlases = new Map();
+    const rendererAtlases = {
+      [this.fontAtlasName]: font.image,
+    };
+
+    for (const [name, config] of spriteAtlasEntries) {
+      const image = config?.image ?? config;
+      if (!image) {
+        throw new Error(`Sprite atlas "${name}" is missing an image.`);
+      }
+
+      this.spriteAtlases.set(name, {
+        name,
+        image,
+        sheetX: config?.sheetX ?? 0,
+        sheetY: config?.sheetY ?? 0,
+        sheetWidth: config?.sheetWidth ?? image.width,
+        spriteWidth: config?.spriteWidth ?? 8,
+        spriteHeight: config?.spriteHeight ?? 8,
+      });
+      rendererAtlases[name] = image;
+    }
+
+    this.defaultSpriteAtlas = assets.defaultSpriteAtlas ?? spriteAtlasEntries[0][0];
+    if (!this.spriteAtlases.has(this.defaultSpriteAtlas)) {
+      throw new Error(`Unknown default sprite atlas "${this.defaultSpriteAtlas}".`);
+    }
+
+    this.renderer = new ImmediateModeRenderer(width, height, {
+      paletteImage: assets.paletteImage,
+      atlases: rendererAtlases,
+      defaultAtlas: this.defaultSpriteAtlas,
+    });
     this.width = width;
     this.height = height;
     this.canvas = this.renderer.canvas;
     this.paletteCount = this.renderer.paletteCount;
-    this.glyphColorIndex = 2;
-    this.charWidth = 5;
-    this.charHeight = 10;
-    this.fontSheetWidth = 65;
-    this.indexString = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890`~!@#$%^&*-=_+\\|;:'\",./?()[]{}<>";
+    this.glyphColorIndex = font.glyphColorIndex ?? 2;
+    this.charWidth = font.charWidth ?? 5;
+    this.charHeight = font.charHeight ?? 10;
+    this.fontSheetWidth = font.sheetWidth ?? font.image.width;
+    this.indexString = font.indexString ?? "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890`~!@#$%^&*-=_+\\|;:'\",./?()[]{}<>";
     this.charToIndex = new Map();
     this.glyphRects = new Array(this.indexString.length);
-    this.charsPerRow = Math.floor(this.fontSheetWidth / this.charWidth);
-    this.fontRows = Math.ceil(this.indexString.length / this.charsPerRow);
-    this.defaultSpriteSheetY = this.fontRows * this.charHeight - 1;
-    this.defaultSpriteSheetWidth = 64;
+    this.charsPerRow = Math.max(1, Math.floor(this.fontSheetWidth / this.charWidth));
     this.camera = { x: 0, y: 0 };
     this.clipStack = [];
 
@@ -26,6 +68,7 @@ export default class ImmediateModeEngine {
       const col = index % this.charsPerRow;
       const row = Math.floor(index / this.charsPerRow);
       this.glyphRects[index] = {
+        atlas: this.fontAtlasName,
         x: col * this.charWidth,
         y: row * this.charHeight,
         w: this.charWidth,
@@ -192,7 +235,10 @@ export default class ImmediateModeEngine {
       this.transformY(destRect.y),
       destRect.w,
       destRect.h,
-      options,
+      {
+        ...options,
+        atlas: options.atlas ?? sourceRect.atlas,
+      },
     );
   }
 
@@ -202,17 +248,28 @@ export default class ImmediateModeEngine {
     return this.glyphRects[glyphIndex];
   }
 
+  getSpriteAtlasConfig(atlasName = this.defaultSpriteAtlas) {
+    const atlas = this.spriteAtlases.get(atlasName);
+    if (!atlas) {
+      throw new Error(`Unknown sprite atlas "${atlasName}".`);
+    }
+    return atlas;
+  }
+
   getSpriteRect(index, options = {}) {
-    const sheetX = options.sheetX ?? 0;
-    const sheetY = options.sheetY ?? this.defaultSpriteSheetY;
-    const spriteWidth = options.spriteWidth ?? 8;
-    const spriteHeight = options.spriteHeight ?? 8;
-    const sheetWidth = options.sheetWidth ?? this.defaultSpriteSheetWidth;
+    const atlasName = options.atlas ?? this.defaultSpriteAtlas;
+    const atlas = this.getSpriteAtlasConfig(atlasName);
+    const sheetX = options.sheetX ?? atlas.sheetX;
+    const sheetY = options.sheetY ?? atlas.sheetY;
+    const spriteWidth = options.spriteWidth ?? atlas.spriteWidth;
+    const spriteHeight = options.spriteHeight ?? atlas.spriteHeight;
+    const sheetWidth = options.sheetWidth ?? atlas.sheetWidth;
     const spritesPerRow = Math.max(1, Math.floor(sheetWidth / spriteWidth));
     const col = index % spritesPerRow;
     const row = Math.floor(index / spritesPerRow);
 
     return {
+      atlas: atlasName,
       x: sheetX + col * spriteWidth,
       y: sheetY + row * spriteHeight,
       w: spriteWidth,
@@ -229,6 +286,23 @@ export default class ImmediateModeEngine {
       w: sourceRect.w * scale,
       h: sourceRect.h * scale,
     }, options);
+  }
+
+  textWidth(text = '') {
+    let lineWidth = 0;
+    let maxWidth = 0;
+
+    for (const ch of String(text)) {
+      if (ch === '\n') {
+        maxWidth = Math.max(maxWidth, lineWidth);
+        lineWidth = 0;
+        continue;
+      }
+
+      lineWidth += this.charWidth;
+    }
+
+    return Math.max(maxWidth, lineWidth);
   }
 
   text(text, x, y, colorIndex = this.glyphColorIndex) {
@@ -250,6 +324,16 @@ export default class ImmediateModeEngine {
         });
       }
       cursorX += this.charWidth;
+    }
+  }
+
+  textCentered(text, centerX, y, colorIndex = this.glyphColorIndex) {
+    let cursorY = y;
+
+    for (const line of String(text).split('\n')) {
+      const x = Math.round(centerX - this.textWidth(line) * 0.5);
+      this.text(line, x, cursorY, colorIndex);
+      cursorY += this.charHeight;
     }
   }
 

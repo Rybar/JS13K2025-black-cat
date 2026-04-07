@@ -20,7 +20,9 @@ It currently ships with a small interactive demo instead of a full game so the r
 
 - `src/js/core/` contains the active engine code, the `immediate/` renderer internals, and `musicplayer.js` if you want to bring audio back later.
 - `src/js/game.js` is the demo entrypoint you replace when starting a new game.
-- `src/img/palette.webp` contains the palette row and sprite/font source data used by the current renderer.
+- `src/img/palette.png` contains the runtime palette image used by the renderer. Colors are read row-major, with up to 256 total entries.
+- `src/img/font-atlas.png` contains the indexed font atlas.
+- `src/img/sprites-main.png` contains the default indexed sprite atlas.
 
 ## Starting Your Own Game
 
@@ -29,14 +31,33 @@ The current demo is intentionally small. Replace the logic in `src/js/game.js` w
 The main boot pattern is:
 
 ```javascript
-const atlasImage = new Image();
-atlasImage.src = 'DATAURL:src/img/palette.webp';
-atlasImage.onload = () => {
-  const engine = new ImmediateModeEngine(480, 270, atlasImage);
-  document.getElementById('game').appendChild(engine.canvas);
-  resizeCanvas(engine.canvas, 480, 270);
-  requestAnimationFrame(loop);
-};
+const [paletteImage, fontImage, spriteImage] = await Promise.all([
+  loadImage('DATAURL:src/img/palette.png'),
+  loadImage('DATAURL:src/img/font-atlas.png'),
+  loadImage('DATAURL:src/img/sprites-main.png'),
+]);
+
+const engine = new ImmediateModeEngine(480, 270, {
+  paletteImage,
+  font: {
+    image: fontImage,
+    charWidth: 5,
+    charHeight: 10,
+  },
+  spriteAtlases: {
+    main: {
+      image: spriteImage,
+      spriteWidth: 8,
+      spriteHeight: 8,
+      sheetWidth: 64,
+    },
+  },
+  defaultSpriteAtlas: 'main',
+});
+
+document.getElementById('game').appendChild(engine.canvas);
+resizeCanvas(engine.canvas, 480, 270);
+requestAnimationFrame(loop);
 ```
 
 From there, draw with methods such as `pset`, `line`, `rectFill`, `circleFill`, `ellipseFill`, `polygonFill`, `drawSprite`, and `drawAtlasSprite` inside your frame loop.

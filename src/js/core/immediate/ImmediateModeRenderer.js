@@ -1,4 +1,4 @@
-import { parseIndexedAtlas } from './atlas.js';
+import { parseIndexedImage, parsePaletteImage } from './atlas.js';
 import { createProgram } from './gl.js';
 import {
   ELLIPSE_FRAGMENT_SHADER_SOURCE,
@@ -10,14 +10,19 @@ import {
 } from './shaders.js';
 
 export default class ImmediateModeRenderer {
-  constructor(width, height, paletteImage) {
-    const atlas = parseIndexedAtlas(paletteImage);
+  constructor(width, height, assets) {
+    const palette = parsePaletteImage(assets.paletteImage);
+    const atlasEntries = Object.entries(assets.atlases ?? {});
+    if (atlasEntries.length === 0) {
+      throw new Error('ImmediateModeRenderer requires at least one atlas image.');
+    }
+
     this.width = width;
     this.height = height;
-    this.paletteRGBA = atlas.paletteRGBA;
-    this.paletteCount = atlas.paletteCount;
-    this.atlasWidth = atlas.atlasWidth;
-    this.atlasHeight = atlas.atlasHeight;
+    this.paletteRGBA = palette.paletteRGBA;
+    this.paletteCount = palette.paletteCount;
+    this.atlases = new Map();
+    this.defaultAtlasName = assets.defaultAtlas ?? atlasEntries[0][0];
 
     this.canvas = document.createElement('canvas');
     this.canvas.width = width;
@@ -72,12 +77,26 @@ export default class ImmediateModeRenderer {
     this.activeTextureUnit = -1;
     this.boundTextures = [];
     this.activeVertexLayout = null;
+    this.activeSpriteAtlasName = this.defaultAtlasName;
 
     this.shapeBuffer = gl.createBuffer();
     this.ellipseBuffer = gl.createBuffer();
     this.spriteBuffer = gl.createBuffer();
     this.paletteTexture = this.createPaletteTexture();
-    this.atlasTexture = this.createAtlasTexture(atlas.atlasIndices);
+
+    for (const [name, image] of atlasEntries) {
+      const atlas = parseIndexedImage(image, palette.colorToIndex);
+      this.atlases.set(name, {
+        name,
+        width: atlas.atlasWidth,
+        height: atlas.atlasHeight,
+        texture: this.createAtlasTexture(atlas.atlasIndices, atlas.atlasWidth, atlas.atlasHeight),
+      });
+    }
+
+    if (!this.atlases.has(this.defaultAtlasName)) {
+      throw new Error(`Unknown default atlas "${this.defaultAtlasName}".`);
+    }
 
     this.shapeLocations = {
       position: gl.getAttribLocation(this.shapeProgram, 'aPosition'),
@@ -167,7 +186,7 @@ export default class ImmediateModeRenderer {
     return texture;
   }
 
-  createAtlasTexture(atlasIndices) {
+  createAtlasTexture(atlasIndices, atlasWidth, atlasHeight) {
     const gl = this.gl;
     const texture = gl.createTexture();
     gl.activeTexture(gl.TEXTURE1);
@@ -180,8 +199,8 @@ export default class ImmediateModeRenderer {
       gl.TEXTURE_2D,
       0,
       gl.LUMINANCE,
-      this.atlasWidth,
-      this.atlasHeight,
+      atlasWidth,
+      atlasHeight,
       0,
       gl.LUMINANCE,
       gl.UNSIGNED_BYTE,
@@ -199,6 +218,15 @@ export default class ImmediateModeRenderer {
     this.currentClipRect = null;
     this.appliedClipRect = null;
     this.activeVertexLayout = null;
+    this.activeSpriteAtlasName = this.defaultAtlasName;
+  }
+
+  getAtlas(atlasName = this.defaultAtlasName) {
+    const atlas = this.atlases.get(atlasName);
+    if (!atlas) {
+      throw new Error(`Unknown atlas "${atlasName}".`);
+    }
+    return atlas;
   }
 
   clear(colorIndex = 0) {
@@ -406,15 +434,22 @@ export default class ImmediateModeRenderer {
     }
   }
 
-  useSpriteBatch(vertexCount) {
+  useSpriteBatch(vertexCount, atlasName = this.defaultAtlasName) {
     if (this.activeBatch === 'shapes') {
       this.flushShapes();
     } else if (this.activeBatch === 'ellipses') {
       this.flushEllipses();
     }
+
+    if (this.activeBatch === 'sprites' && this.activeSpriteAtlasName !== atlasName && this.spriteVertexCount > 0) {
+      this.flushSprites();
+    }
+
     this.activeBatch = 'sprites';
+    this.activeSpriteAtlasName = atlasName;
     if (this.spriteVertexCount + vertexCount > this.maxSpriteVertices) {
       this.flushSprites();
+      this.activeSpriteAtlasName = atlasName;
     }
   }
 
@@ -700,16 +735,17 @@ export default class ImmediateModeRenderer {
     this.resolveSpriteRemap(options);
     const remapSource = this.spriteRemapSource;
     const remapTarget = this.spriteRemapTarget;
+    const atlas = this.getAtlas(options.atlas ?? sourceRect.atlas ?? this.defaultAtlasName);
     const flipX = options.flipX === true;
     const flipY = options.flipY === true;
     const originX = options.originX ?? 0;
     const originY = options.originY ?? 0;
     const originOffsetX = w * originX;
     const originOffsetY = h * originY;
-    const sx0 = sourceRect.x / this.atlasWidth;
-    const sy0 = sourceRect.y / this.atlasHeight;
-    const sx1 = (sourceRect.x + sourceRect.w) / this.atlasWidth;
-    const sy1 = (sourceRect.y + sourceRect.h) / this.atlasHeight;
+    const sx0 = sourceRect.x / atlas.width;
+    const sy0 = sourceRect.y / atlas.height;
+    const sx1 = (sourceRect.x + sourceRect.w) / atlas.width;
+    const sy1 = (sourceRect.y + sourceRect.h) / atlas.height;
     const u0 = flipX ? sx1 : sx0;
     const v0 = flipY ? sy1 : sy0;
     const u1 = flipX ? sx0 : sx1;
@@ -719,7 +755,7 @@ export default class ImmediateModeRenderer {
     const dx1 = dx0 + w;
     const dy1 = dy0 + h;
 
-    this.useSpriteBatch(6);
+    this.useSpriteBatch(6, atlas.name);
     this.pushSpriteVertex(dx0, dy0, u0, v0, remapSource, remapTarget);
     this.pushSpriteVertex(dx1, dy0, u1, v0, remapSource, remapTarget);
     this.pushSpriteVertex(dx0, dy1, u0, v1, remapSource, remapTarget);
@@ -764,11 +800,12 @@ export default class ImmediateModeRenderer {
     if (this.spriteVertexCount === 0) return;
 
     const gl = this.gl;
+    const atlas = this.getAtlas(this.activeSpriteAtlasName);
     this.ensureFrameCleared();
     this.applyClipState();
     this.bindProgram(this.spriteProgram);
     this.bindTexture(gl.TEXTURE0, this.paletteTexture);
-    this.bindTexture(gl.TEXTURE1, this.atlasTexture);
+    this.bindTexture(gl.TEXTURE1, atlas.texture);
     this.bindVertexLayout('sprites');
     this.bindArrayBuffer(this.spriteBuffer);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.spriteVertices.subarray(0, this.spriteVertexCount * this.spriteStride));

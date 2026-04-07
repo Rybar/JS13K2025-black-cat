@@ -1,8 +1,12 @@
 {
+  "deprecated": true,
+  "deprecatedAt": "2026-04-06",
+  "replacement": "src/img/palette-description.json",
   "paletteName": "custom-palette-65-rgb",
   "sourceImage": "src/assets/custom-palette-65-RGB.png",
   "generatedAt": "2026-03-26",
   "notes": [
+    "Deprecated: use src/img/palette-description.json for the runtime palette contract tied to src/img/palette.png.",
     "Names are descriptive and palette-specific rather than mapped to CSS color keywords.",
     "Indexes 58-63 are repeated #FF00FF swatches that appear reserved for mask, transparency, or debug use.",
     "Index 4 duplicates index 0, index 64 duplicates index 0, and indexes 59-63 duplicate index 58."
