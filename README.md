@@ -7,7 +7,8 @@ It currently ships with a small interactive demo instead of a full game so the r
 ## Included
 
 - An immediate-mode indexed-color renderer under `src/js/core/Retrobuffer.js` and `src/js/core/immediate/`.
-- A particle stress-test demo in `src/js/game.js` that boots the engine and exercises the current primitive and sprite paths.
+- A launcher entry in `src/js/game.js` that can start demos registered under `src/games/`.
+- A first game project in `src/games/ballistics_coordinator/` that demonstrates how to split config, state, gameplay, and rendering into focused modules.
 - A production build that keeps output self-contained without JS13K-specific packing steps.
 
 ## Getting Started
@@ -19,14 +20,16 @@ It currently ships with a small interactive demo instead of a full game so the r
 ## Project Layout
 
 - `src/js/core/` contains the active engine code, the `immediate/` renderer internals, and `musicplayer.js` if you want to bring audio back later.
-- `src/js/game.js` is the demo entrypoint you replace when starting a new game.
+- `src/js/game.js` is the launcher/bootstrap entrypoint.
+- `src/games/` contains per-game folders plus `registry.js`, which is the source of truth for the launcher.
+- `src/games/ballistics_coordinator/` shows the recommended split for new games.
 - `src/img/palette.png` contains the runtime palette image used by the renderer. Colors are read row-major, with up to 256 total entries.
 - `src/img/font-atlas.png` contains the indexed font atlas.
 - `src/img/sprites-main.png` contains the default indexed sprite atlas.
 
 ## Starting Your Own Game
 
-The current demo is intentionally small. Replace the logic in `src/js/game.js` with your own update and draw loop, or split it into game-specific modules once you know the structure you want.
+The current demo setup is intentionally small. Add new games under `src/games/<your_game>/`, export them from `src/games/registry.js`, and keep `src/js/game.js` focused on launcher and bootstrap responsibilities.
 
 The main boot pattern is:
 
