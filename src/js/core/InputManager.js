@@ -1,9 +1,10 @@
 import { clamp, screenToCanvas } from './utils.js';
 
 export default class InputManager {
-  constructor({ screenWidth, screenHeight, cursorX = screenWidth * 0.5, cursorY = screenHeight * 0.5 }) {
+  constructor({ screenWidth, screenHeight, cursorX = screenWidth * 0.5, cursorY = screenHeight * 0.5, cursorSpeed = 0.24 }) {
     this.screenWidth = screenWidth;
     this.screenHeight = screenHeight;
+    this.cursorSpeed = cursorSpeed;
     this.cursor = {
       x: cursorX,
       y: cursorY,
@@ -121,7 +122,7 @@ export default class InputManager {
     moveY += this.getAxis(gamepad, 1) + this.getAxis(gamepad, 3);
 
     if (moveX !== 0 || moveY !== 0) {
-      const speed = 0.24 * dt;
+      const speed = this.cursorSpeed * dt;
       this.cursor.x = clamp(this.cursor.x + moveX * speed, 0, this.screenWidth - 1);
       this.cursor.y = clamp(this.cursor.y + moveY * speed, 0, this.screenHeight - 1);
       this.cursor.active = true;

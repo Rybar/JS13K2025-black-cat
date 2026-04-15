@@ -1,17 +1,17 @@
 import ImmediateModeRenderer from './immediate/ImmediateModeRenderer.js';
 
-export default class ImmediateModeEngine {
+export default class Retrobuffer {
   constructor(width, height, assets) {
     const font = assets.font ?? {};
     const spriteAtlasEntries = Object.entries(assets.spriteAtlases ?? {});
     if (!assets.paletteImage) {
-      throw new Error('ImmediateModeEngine requires a paletteImage.');
+      throw new Error('Retrobuffer requires a paletteImage.');
     }
     if (!font.image) {
-      throw new Error('ImmediateModeEngine requires a font atlas image.');
+      throw new Error('Retrobuffer requires a font atlas image.');
     }
     if (spriteAtlasEntries.length === 0) {
-      throw new Error('ImmediateModeEngine requires at least one sprite atlas.');
+      throw new Error('Retrobuffer requires at least one sprite atlas.');
     }
 
     this.fontAtlasName = font.atlasName ?? 'font';

@@ -1,21 +1,31 @@
-import ImmediateModeEngine from './core/ImmediateModeEngine.js';
+import Retrobuffer from './core/Retrobuffer.js';
 import InputManager from './core/InputManager.js';
 import { clamp, resizeCanvas } from './core/utils.js';
 
 (function () {
-  const screenWidth = 480;
-  const screenHeight = 270;
-  const playfield = { x: 10, y: 10, w: screenWidth - 20, h: screenHeight - 20 };
-  const horizonY = 204;
-  const groundY = 222;
+  const baseResolution = { width: 480, height: 270 };
+  const screenWidth = 640;
+  const screenHeight = 360;
+  const scaleX = screenWidth / baseResolution.width;
+  const scaleY = screenHeight / baseResolution.height;
+  const scale = Math.min(scaleX, scaleY);
+  const layout = createLayout(screenWidth, screenHeight);
+  const tuning = createTuning(scale);
+  const playfield = layout.playfield;
+  const horizonY = layout.horizonY;
+  const groundY = layout.groundY;
   const baseMissiles = [10, 12, 10];
   const batteryMissileLayouts = {
     10: [4, 3, 2, 1],
     12: [5, 4, 3],
   };
+  const displayScale = {
+    windowed: 2,
+    fullscreen: 3,
+  };
   const highScoreKey = 'ballisticsCoordinatorHighScore';
-  const cityXs = [42, 96, 152, 328, 384, 438];
-  const batteryXs = [78, 240, 402];
+  const cityXs = layout.cityXs;
+  const batteryXs = layout.batteryXs;
   const assetURLs = {
     palette: 'DATAURL:src/img/palette.png',
     font: 'DATAURL:src/img/font-atlas.png',
@@ -77,6 +87,8 @@ import { clamp, resizeCanvas } from './core/utils.js';
 
   let engine;
   let input;
+  let displayShell;
+  let fullscreenToggle;
   let lastFrameTime = performance.now();
 
   function loadImage(src) {
@@ -100,18 +112,200 @@ import { clamp, resizeCanvas } from './core/utils.js';
     return a + (b - a) * t;
   }
 
+  function sx(value) {
+    return Math.round(value * scaleX);
+  }
+
+  function sy(value) {
+    return Math.round(value * scaleY);
+  }
+
+  function ss(value) {
+    return Math.max(1, Math.round(value * scale));
+  }
+
+  function distributeSpan(start, end, count) {
+    if (count <= 1) {
+      return [Math.round((start + end) * 0.5)];
+    }
+
+    const span = end - start;
+    return new Array(count).fill(0).map((_, index) => Math.round(start + (span * index) / (count - 1)));
+  }
+
+  function createCenteredRect(width, y, height) {
+    const scaledWidth = sx(width);
+    const scaledHeight = sy(height);
+    return {
+      x: Math.round(screenWidth * 0.5 - scaledWidth * 0.5),
+      y: sy(y),
+      w: scaledWidth,
+      h: scaledHeight,
+    };
+  }
+
+  function createLayout(width, height) {
+    const playfieldRect = {
+      x: sx(10),
+      y: sy(10),
+      w: width - sx(20),
+      h: height - sy(20),
+    };
+    const centerX = Math.round(width * 0.5);
+
+    return {
+      centerX,
+      playfield: playfieldRect,
+      horizonY: sy(204),
+      groundY: sy(222),
+      starCount: Math.round(64 * scaleX * scaleY),
+      cityXs: [42, 96, 152, 328, 384, 438].map((value) => sx(value)),
+      batteryXs: [78, 240, 402].map((value) => sx(value)),
+      backdropBandHeight: ss(8),
+      gameplay: {
+        cursorPaddingX: ss(8),
+        cursorPaddingTop: ss(10),
+        cursorPaddingBottom: ss(20),
+        spawnPaddingX: ss(12),
+        spawnY: playfieldRect.y + ss(4),
+        cityTargetOffsetY: ss(8),
+      },
+      hud: {
+        top: playfieldRect.y + 1,
+        bottom: sy(23),
+        textY: sy(13),
+        columns: distributeSpan(playfieldRect.x + ss(34), playfieldRect.x + playfieldRect.w - ss(34), 6),
+      },
+      batteryBar: {
+        left: sx(66),
+        right: sx(414),
+        top: sy(233),
+        bottom: sy(251),
+        selectionHalfWidth: ss(34),
+        dividerTop: sy(236),
+        dividerBottom: sy(248),
+        pyramidTop: sy(236),
+        cellWidth: ss(4),
+        cellHeight: ss(2),
+        cellGap: Math.max(1, ss(1)),
+      },
+      title: {
+        titleY: sy(48),
+        subtitleY: sy(64),
+        blurbY: sy(92),
+        blurbDetailY: sy(104),
+        startY: sy(154),
+        instructionsY: sy(168),
+        highScoreY: sy(196),
+        controlsY: sy(222),
+        radar: {
+          centerY: sy(134),
+          outerRadius: ss(64),
+          ring52: ss(52),
+          ring40: ss(40),
+          ring28: ss(28),
+          ring16: ss(16),
+          beamOuter: ss(58),
+          beamInner: ss(42),
+          coreRadius: ss(4),
+        },
+      },
+      mountains: [
+        [
+          { x: 0, y: sy(204) },
+          { x: sx(86), y: sy(132) },
+          { x: sx(174), y: sy(204) },
+        ],
+        [
+          { x: sx(114), y: sy(204) },
+          { x: sx(238), y: sy(120) },
+          { x: sx(360), y: sy(204) },
+        ],
+        [
+          { x: sx(280), y: sy(204) },
+          { x: sx(392), y: sy(142) },
+          { x: sx(479), y: sy(204) },
+        ],
+      ],
+      panels: {
+        instructions: createCenteredRect(400, 30, 206),
+        summary: createCenteredRect(236, 48, 166),
+        gameOver: createCenteredRect(244, 56, 150),
+        paused: createCenteredRect(208, 114, 52),
+        banner: createCenteredRect(248, 96, 26),
+      },
+    };
+  }
+
+  function createTuning(worldScale) {
+    return {
+      cursorSpeed: 0.24 * worldScale,
+      enemySpeedScale: worldScale,
+      playerSideSpeed: 0.17 * worldScale,
+      playerCenterSpeed: 0.22 * worldScale,
+      explosionScale: worldScale,
+      explosionGrowthRate: 0.08 * worldScale,
+      explosionDecayRate: 0.05 * worldScale,
+      emberSpeedMin: 0.03 * worldScale,
+      emberSpeedMax: 0.12 * worldScale,
+      emberLift: 0.03 * worldScale,
+      emberGravity: 0.00008 * worldScale,
+      mirvChildSpread: 18 * worldScale,
+      impactRadiusSq: 18 * worldScale * worldScale,
+    };
+  }
+
   function createStars() {
     const stars = [];
-    for (let index = 0; index < 64; index++) {
+    for (let index = 0; index < layout.starCount; index++) {
       stars.push({
-        x: randomRange(playfield.x + 4, playfield.x + playfield.w - 4),
-        y: randomRange(playfield.y + 4, horizonY - 14),
+        x: randomRange(playfield.x + ss(4), playfield.x + playfield.w - ss(4)),
+        y: randomRange(playfield.y + ss(4), horizonY - ss(14)),
         speed: randomRange(0.0008, 0.0026),
         twinkle: randomRange(0, Math.PI * 2),
         color: index % 4 === 0 ? palette.frost : index % 3 === 0 ? palette.aqua : palette.cloud,
       });
     }
     return stars;
+  }
+
+  function isDisplayFullscreen() {
+    return document.fullscreenElement === displayShell;
+  }
+
+  function syncDisplayMode() {
+    if (!engine || !displayShell) return;
+
+    const fullscreen = isDisplayFullscreen();
+    document.body.classList.toggle('fullscreen-active', fullscreen);
+    displayShell.classList.toggle('is-fullscreen', fullscreen);
+    resizeCanvas(engine.canvas, screenWidth, screenHeight, fullscreen ? displayScale.fullscreen : displayScale.windowed);
+
+    if (fullscreenToggle) {
+      fullscreenToggle.textContent = fullscreen ? 'Exit Full Screen' : 'Full Screen';
+      fullscreenToggle.setAttribute('aria-pressed', fullscreen ? 'true' : 'false');
+    }
+  }
+
+  async function toggleDisplayFullscreen() {
+    if (!displayShell) return;
+
+    try {
+      if (isDisplayFullscreen()) {
+        await document.exitFullscreen();
+      } else {
+        await displayShell.requestFullscreen();
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function handleFullscreenEscape(event) {
+    if (event.key !== 'Escape' || !isDisplayFullscreen()) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void document.exitFullscreen();
   }
 
   async function boot() {
@@ -133,7 +327,7 @@ import { clamp, resizeCanvas } from './core/utils.js';
       };
     }
 
-    engine = new ImmediateModeEngine(screenWidth, screenHeight, {
+    engine = new Retrobuffer(screenWidth, screenHeight, {
       paletteImage: images[0],
       font: {
         image: images[1],
@@ -149,16 +343,22 @@ import { clamp, resizeCanvas } from './core/utils.js';
       screenHeight,
       cursorX: screenWidth * 0.5,
       cursorY: screenHeight * 0.45,
+      cursorSpeed: tuning.cursorSpeed,
     });
 
-    const mount = document.getElementById('game');
+    displayShell = document.getElementById('display-shell');
+    fullscreenToggle = document.getElementById('fullscreen-toggle');
+    const mount = document.getElementById('display-stage');
     mount.appendChild(engine.canvas);
-    resizeCanvas(engine.canvas, screenWidth, screenHeight);
     input.attach(engine.canvas);
+    syncDisplayMode();
 
-    globalThis.addEventListener('resize', () => {
-      resizeCanvas(engine.canvas, screenWidth, screenHeight);
+    fullscreenToggle?.addEventListener('click', () => {
+      void toggleDisplayFullscreen();
     });
+
+    document.addEventListener('fullscreenchange', syncDisplayMode);
+    globalThis.addEventListener('keydown', handleFullscreenEscape, true);
 
     globalThis.addEventListener('blur', () => {
       if (shell.scene === 'gameplay') {
@@ -234,8 +434,8 @@ import { clamp, resizeCanvas } from './core/utils.js';
       completeTimer: 0,
       shock: 0,
       cursor: {
-        x: clamp(input.cursor.x, playfield.x + 8, playfield.x + playfield.w - 8),
-        y: clamp(input.cursor.y, playfield.y + 10, groundY - 18),
+        x: clamp(input.cursor.x, playfield.x + layout.gameplay.cursorPaddingX, playfield.x + playfield.w - layout.gameplay.cursorPaddingX),
+        y: clamp(input.cursor.y, playfield.y + layout.gameplay.cursorPaddingTop, groundY - layout.gameplay.cursorPaddingBottom),
       },
     };
   }
@@ -248,7 +448,7 @@ import { clamp, resizeCanvas } from './core/utils.js';
       plan.push({
         type,
         delay: Math.max(220, 520 + randomInt(0, 240) - round * 18),
-        speed: 0.018 + round * 0.0014 + (type === 'mirv' ? 0.003 : 0),
+        speed: (0.018 + round * 0.0014 + (type === 'mirv' ? 0.003 : 0)) * tuning.enemySpeedScale,
       });
     }
     return plan;
@@ -390,8 +590,8 @@ import { clamp, resizeCanvas } from './core/utils.js';
       return;
     }
 
-    round.cursor.x = clamp(input.cursor.x, playfield.x + 8, playfield.x + playfield.w - 8);
-    round.cursor.y = clamp(input.cursor.y, playfield.y + 10, groundY - 20);
+    round.cursor.x = clamp(input.cursor.x, playfield.x + layout.gameplay.cursorPaddingX, playfield.x + playfield.w - layout.gameplay.cursorPaddingX);
+    round.cursor.y = clamp(input.cursor.y, playfield.y + layout.gameplay.cursorPaddingTop, groundY - layout.gameplay.cursorPaddingBottom);
 
     for (const battery of round.batteries) {
       battery.cooldown = Math.max(0, battery.cooldown - dt);
@@ -454,7 +654,7 @@ import { clamp, resizeCanvas } from './core/utils.js';
       return;
     }
 
-    const speed = battery.id === 1 ? 0.22 : 0.17;
+    const speed = battery.id === 1 ? tuning.playerCenterSpeed : tuning.playerSideSpeed;
     const dx = round.cursor.x - battery.x;
     const dy = round.cursor.y - battery.y;
     const distance = Math.hypot(dx, dy) || 1;
@@ -511,8 +711,8 @@ import { clamp, resizeCanvas } from './core/utils.js';
     const target = pickEnemyTarget(round);
     if (!target) return;
 
-    const startX = randomRange(playfield.x + 12, playfield.x + playfield.w - 12);
-    const startY = playfield.y + 4;
+    const startX = randomRange(playfield.x + layout.gameplay.spawnPaddingX, playfield.x + playfield.w - layout.gameplay.spawnPaddingX);
+    const startY = layout.gameplay.spawnY;
     const dx = target.x - startX;
     const dy = target.y - startY;
     const distance = Math.hypot(dx, dy) || 1;
@@ -542,7 +742,7 @@ import { clamp, resizeCanvas } from './core/utils.js';
     const targets = [];
     for (let index = 0; index < round.cities.length; index++) {
       if (round.cities[index].alive) {
-        targets.push({ kind: 'city', index, x: round.cities[index].x, y: groundY - 8 });
+        targets.push({ kind: 'city', index, x: round.cities[index].x, y: groundY - layout.gameplay.cityTargetOffsetY });
       }
     }
     for (let index = 0; index < round.batteries.length; index++) {
@@ -567,7 +767,7 @@ import { clamp, resizeCanvas } from './core/utils.js';
 
       if (distance <= step) {
         round.playerMissiles.splice(index, 1);
-        addExplosion(round, missile.targetX, missile.targetY, missile.batteryId === 1 ? 30 : 24, 'player');
+        addExplosion(round, missile.targetX, missile.targetY, (missile.batteryId === 1 ? 30 : 24) * tuning.explosionScale, 'player');
         continue;
       }
 
@@ -599,7 +799,7 @@ import { clamp, resizeCanvas } from './core/utils.js';
 
       const dx = missile.targetX - missile.x;
       const dy = missile.targetY - missile.y;
-      if (dx * dx + dy * dy <= Math.max(18, missile.speed * dt * missile.speed * dt)) {
+      if (dx * dx + dy * dy <= Math.max(tuning.impactRadiusSq, missile.speed * dt * missile.speed * dt)) {
         impactEnemyMissile(round, missile);
         round.enemyMissiles.splice(index, 1);
       }
@@ -607,12 +807,12 @@ import { clamp, resizeCanvas } from './core/utils.js';
   }
 
   function splitMirv(round, missile) {
-    addExplosion(round, missile.x, missile.y, 11, 'split');
+    addExplosion(round, missile.x, missile.y, 11 * tuning.explosionScale, 'split');
     const children = 3;
     for (let child = 0; child < children; child++) {
       const target = pickEnemyTarget(round);
       if (!target) continue;
-      const spreadX = target.x + (child - 1) * 18;
+      const spreadX = target.x + (child - 1) * tuning.mirvChildSpread;
       const dx = spreadX - missile.x;
       const dy = target.y - missile.y;
       const distance = Math.hypot(dx, dy) || 1;
@@ -626,9 +826,9 @@ import { clamp, resizeCanvas } from './core/utils.js';
         targetY: target.y,
         targetKind: target.kind,
         targetIndex: target.index,
-        speed: missile.speed + 0.01,
-        vx: (dx / distance) * (missile.speed + 0.01),
-        vy: (dy / distance) * (missile.speed + 0.01),
+        speed: missile.speed + 0.01 * tuning.enemySpeedScale,
+        vx: (dx / distance) * (missile.speed + 0.01 * tuning.enemySpeedScale),
+        vy: (dy / distance) * (missile.speed + 0.01 * tuning.enemySpeedScale),
         trailX: missile.x,
         trailY: missile.y,
         value: 25,
@@ -652,12 +852,12 @@ import { clamp, resizeCanvas } from './core/utils.js';
 
   function destroyEnemyMissile(round, missile) {
     awardScore(round.campaign, missile.value * round.campaign.multiplier);
-    addExplosion(round, missile.x, missile.y, 9, 'intercept');
+    addExplosion(round, missile.x, missile.y, 9 * tuning.explosionScale, 'intercept');
   }
 
   function impactEnemyMissile(round, missile) {
-    addExplosion(round, missile.targetX, missile.targetY, 18, 'enemy');
-    round.shock = Math.min(4, round.shock + 1.5);
+    addExplosion(round, missile.targetX, missile.targetY, 18 * tuning.explosionScale, 'enemy');
+    round.shock = Math.min(ss(4), round.shock + 1.5 * scale);
 
     if (missile.targetKind === 'city') {
       const city = round.cities[missile.targetIndex];
@@ -699,12 +899,12 @@ import { clamp, resizeCanvas } from './core/utils.js';
   function addBurst(round, x, y, count, colorA, colorB) {
     for (let index = 0; index < count; index++) {
       const angle = randomRange(0, Math.PI * 2);
-      const speed = randomRange(0.03, 0.12);
+      const speed = randomRange(tuning.emberSpeedMin, tuning.emberSpeedMax);
       round.embers.push({
         x,
         y,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 0.03,
+        vy: Math.sin(angle) * speed - tuning.emberLift,
         life: randomRange(260, 660),
         age: 0,
         colorA,
@@ -719,13 +919,13 @@ import { clamp, resizeCanvas } from './core/utils.js';
       explosion.age += dt;
       explosion.sparkTimer -= dt;
       if (explosion.growing) {
-        explosion.radius += dt * 0.08;
+        explosion.radius += dt * tuning.explosionGrowthRate;
         if (explosion.radius >= explosion.maxRadius) {
           explosion.radius = explosion.maxRadius;
           explosion.growing = false;
         }
       } else {
-        explosion.radius -= dt * 0.05;
+        explosion.radius -= dt * tuning.explosionDecayRate;
       }
 
       if (explosion.sparkTimer <= 0 && explosion.radius > 4) {
@@ -745,7 +945,7 @@ import { clamp, resizeCanvas } from './core/utils.js';
       ember.age += dt;
       ember.x += ember.vx * dt;
       ember.y += ember.vy * dt;
-      ember.vy += dt * 0.00008;
+      ember.vy += dt * tuning.emberGravity;
       ember.vx *= 0.996;
       if (ember.age >= ember.life) {
         round.embers.splice(index, 1);
@@ -810,7 +1010,7 @@ import { clamp, resizeCanvas } from './core/utils.js';
   function drawBackdrop() {
     engine.rectFill(0, 0, screenWidth - 1, screenHeight - 1, palette.midnight);
 
-    for (let y = 0; y < horizonY; y += 8) {
+    for (let y = 0; y < horizonY; y += layout.backdropBandHeight) {
       const t = y / horizonY;
       let bandColor = palette.midnight;
 
@@ -826,7 +1026,7 @@ import { clamp, resizeCanvas } from './core/utils.js';
         bandColor = palette.dawn;
       }
 
-      engine.rectFill(0, y, screenWidth - 1, Math.min(horizonY - 1, y + 7), bandColor);
+      engine.rectFill(0, y, screenWidth - 1, Math.min(horizonY - 1, y + layout.backdropBandHeight - 1), bandColor);
     }
 
     drawStars();
@@ -838,14 +1038,16 @@ import { clamp, resizeCanvas } from './core/utils.js';
   function drawStars() {
     for (const star of shell.stars) {
       const twinkle = Math.sin(star.twinkle) * 0.5 + 0.5;
-      engine.rectFill(star.x, star.y, star.x + 1, star.y + 1, twinkle > 0.58 ? star.color : palette.mineral);
+      const size = twinkle > 0.82 ? 2 : 1;
+      engine.rectFill(star.x, star.y, star.x + size - 1, star.y + size - 1, twinkle > 0.58 ? star.color : palette.mineral);
     }
   }
 
   function drawMountains() {
-    engine.triFill({ x: 0, y: horizonY }, { x: 86, y: 132 }, { x: 174, y: horizonY }, palette.bark);
-    engine.triFill({ x: 114, y: horizonY }, { x: 238, y: 120 }, { x: 360, y: horizonY }, palette.mushroom);
-    engine.triFill({ x: 280, y: horizonY }, { x: 392, y: 142 }, { x: 479, y: horizonY }, palette.mahogany);
+    const [ridgeA, ridgeB, ridgeC] = layout.mountains;
+    engine.triFill(ridgeA[0], ridgeA[1], ridgeA[2], palette.bark);
+    engine.triFill(ridgeB[0], ridgeB[1], ridgeB[2], palette.mushroom);
+    engine.triFill(ridgeC[0], ridgeC[1], ridgeC[2], palette.mahogany);
   }
 
   function drawGround() {
@@ -860,47 +1062,48 @@ import { clamp, resizeCanvas } from './core/utils.js';
   }
 
   function drawTitle() {
-    const centerX = Math.round(screenWidth * 0.5);
+    const titleLayout = layout.title;
 
     drawTitleRadar();
-    engine.textCentered('BALLISTICS', centerX, 48, palette.frost);
-    engine.textCentered('COORDINATOR', centerX, 64, palette.dawn);
-    engine.textCentered('DEFEND THE HINTERLAND', centerX, 92, palette.sand);
-    engine.textCentered('FROM A CASCADING MISSILE STORM', centerX, 104, palette.mist);
-    engine.textCentered('PRESS FIRE OR ENTER TO START', centerX, 154, palette.aqua);
-    engine.textCentered('PRESS I FOR INSTRUCTIONS', centerX, 168, palette.cloud);
-    engine.textCentered(`HIGH SCORE ${shell.highScore}`, centerX, 196, palette.straw);
-    engine.textCentered('MOUSE KEYBOARD GAMEPAD TOUCH', centerX, 222, palette.cloud);
+    engine.textCentered('BALLISTICS', layout.centerX, titleLayout.titleY, palette.frost);
+    engine.textCentered('COORDINATOR', layout.centerX, titleLayout.subtitleY, palette.dawn);
+    engine.textCentered('DEFEND THE HINTERLAND', layout.centerX, titleLayout.blurbY, palette.sand);
+    engine.textCentered('FROM A CASCADING MISSILE STORM', layout.centerX, titleLayout.blurbDetailY, palette.mist);
+    engine.textCentered('PRESS FIRE OR ENTER TO START', layout.centerX, titleLayout.startY, palette.aqua);
+    engine.textCentered('PRESS I FOR INSTRUCTIONS', layout.centerX, titleLayout.instructionsY, palette.cloud);
+    engine.textCentered(`HIGH SCORE ${shell.highScore}`, layout.centerX, titleLayout.highScoreY, palette.straw);
+    engine.textCentered('MOUSE KEYBOARD GAMEPAD TOUCH', layout.centerX, titleLayout.controlsY, palette.cloud);
   }
 
   function drawTitleRadar() {
-    const centerX = screenWidth * 0.5;
-    const centerY = 134;
+    const radar = layout.title.radar;
     const sweep = (shell.elapsed * 0.0014) % 1;
-    engine.circleFill(centerX, centerY, 64, palette.gunmetal);
-    engine.circleFill(centerX, centerY, 52, palette.midnight);
-    engine.circleFill(centerX, centerY, 40, palette.storm);
-    engine.circleFill(centerX, centerY, 28, palette.midnight);
-    engine.circleFill(centerX, centerY, 16, palette.slateTeal);
+    engine.circleFill(layout.centerX, radar.centerY, radar.outerRadius, palette.gunmetal);
+    engine.circleFill(layout.centerX, radar.centerY, radar.ring52, palette.midnight);
+    engine.circleFill(layout.centerX, radar.centerY, radar.ring40, palette.storm);
+    engine.circleFill(layout.centerX, radar.centerY, radar.ring28, palette.midnight);
+    engine.circleFill(layout.centerX, radar.centerY, radar.ring16, palette.slateTeal);
     const angle = sweep * Math.PI * 2 - Math.PI * 0.7;
-    engine.line(centerX, centerY, centerX + Math.cos(angle) * 58, centerY + Math.sin(angle) * 58, palette.signalBlue, 2);
-    engine.line(centerX, centerY, centerX + Math.cos(angle) * 42, centerY + Math.sin(angle) * 42, palette.frost, 1);
-    engine.circleFill(centerX, centerY, 4, palette.frost);
+    engine.line(layout.centerX, radar.centerY, layout.centerX + Math.cos(angle) * radar.beamOuter, radar.centerY + Math.sin(angle) * radar.beamOuter, palette.signalBlue, 2);
+    engine.line(layout.centerX, radar.centerY, layout.centerX + Math.cos(angle) * radar.beamInner, radar.centerY + Math.sin(angle) * radar.beamInner, palette.frost, 1);
+    engine.circleFill(layout.centerX, radar.centerY, radar.coreRadius, palette.frost);
   }
 
   function drawInstructions() {
-    drawPanel(40, 30, 400, 206, palette.gunmetal);
-    engine.text('BALLISTICS COORDINATOR', 108, 44, palette.frost);
-    engine.text('YOU ARE DEFENDING SIX CITIES', 92, 70, palette.sand);
-    engine.text('AND THREE LAUNCH BATTERIES.', 95, 82, palette.sand);
-    engine.text('ARROWS WASD OR STICK MOVE CURSOR', 63, 108, palette.mist);
-    engine.text('SPACE ENTER CLICK OR TAP FIRES', 74, 120, palette.mist);
-    engine.text('NEAREST BATTERY FIRES AUTOMATICALLY', 51, 132, palette.mist);
-    engine.text('CENTER BATTERY FIRES FASTEST.', 91, 156, palette.aqua);
-    engine.text('SURVIVING CITIES AND MISSILES', 82, 168, palette.aqua);
-    engine.text('AWARD BONUS SCORE EACH ROUND.', 87, 180, palette.aqua);
-    engine.text('EVERY 10000 POINTS BANKS A CITY.', 77, 192, palette.apricot);
-    engine.text('PRESS FIRE TO RETURN', 135, 216, palette.frost);
+    const panel = layout.panels.instructions;
+    const centerX = layout.centerX;
+    drawPanel(panel.x, panel.y, panel.w, panel.h, palette.gunmetal);
+    engine.textCentered('BALLISTICS COORDINATOR', centerX, panel.y + ss(14), palette.frost);
+    engine.textCentered('YOU ARE DEFENDING SIX CITIES', centerX, panel.y + ss(40), palette.sand);
+    engine.textCentered('AND THREE LAUNCH BATTERIES.', centerX, panel.y + ss(52), palette.sand);
+    engine.textCentered('ARROWS WASD OR STICK MOVE CURSOR', centerX, panel.y + ss(78), palette.mist);
+    engine.textCentered('SPACE ENTER CLICK OR TAP FIRES', centerX, panel.y + ss(90), palette.mist);
+    engine.textCentered('NEAREST BATTERY FIRES AUTOMATICALLY', centerX, panel.y + ss(102), palette.mist);
+    engine.textCentered('CENTER BATTERY FIRES FASTEST.', centerX, panel.y + ss(126), palette.aqua);
+    engine.textCentered('SURVIVING CITIES AND MISSILES', centerX, panel.y + ss(138), palette.aqua);
+    engine.textCentered('AWARD BONUS SCORE EACH ROUND.', centerX, panel.y + ss(150), palette.aqua);
+    engine.textCentered('EVERY 10000 POINTS BANKS A CITY.', centerX, panel.y + ss(162), palette.apricot);
+    engine.textCentered('PRESS FIRE TO RETURN', centerX, panel.y + panel.h - ss(20), palette.frost);
   }
 
   function getBatteryMissileLayout(maxMissiles) {
@@ -987,43 +1190,47 @@ import { clamp, resizeCanvas } from './core/utils.js';
   function drawSummary() {
     const summary = shell.summary;
     if (!summary) return;
-    const centerX = Math.round(screenWidth * 0.5);
+    const panel = layout.panels.summary;
 
-    drawPanel(122, 48, 236, 166, palette.gunmetal);
-    engine.textCentered(`ROUND ${summary.round} CLEARED`, centerX, 62, palette.frost);
-    engine.textCentered(`MULTIPLIER X${summary.multiplier}`, centerX, 86, palette.aqua);
-    engine.textCentered(`CITY BONUS ${summary.cityBonus}`, centerX, 110, palette.sand);
-    engine.textCentered(`MISSILE BONUS ${summary.missileBonus}`, centerX, 122, palette.apricot);
-    engine.textCentered(`SURVIVING CITIES ${summary.survivingCities}`, centerX, 146, palette.mist);
-    engine.textCentered(`RESERVE CITIES ${summary.reserveCities}`, centerX, 158, palette.mist);
-    engine.textCentered(`TOTAL SCORE ${summary.score}`, centerX, 182, palette.frost);
-    engine.textCentered('PRESS FIRE FOR NEXT ROUND', centerX, 198, palette.cloud);
+    drawPanel(panel.x, panel.y, panel.w, panel.h, palette.gunmetal);
+    engine.textCentered(`ROUND ${summary.round} CLEARED`, layout.centerX, panel.y + ss(14), palette.frost);
+    engine.textCentered(`MULTIPLIER X${summary.multiplier}`, layout.centerX, panel.y + ss(38), palette.aqua);
+    engine.textCentered(`CITY BONUS ${summary.cityBonus}`, layout.centerX, panel.y + ss(62), palette.sand);
+    engine.textCentered(`MISSILE BONUS ${summary.missileBonus}`, layout.centerX, panel.y + ss(74), palette.apricot);
+    engine.textCentered(`SURVIVING CITIES ${summary.survivingCities}`, layout.centerX, panel.y + ss(98), palette.mist);
+    engine.textCentered(`RESERVE CITIES ${summary.reserveCities}`, layout.centerX, panel.y + ss(110), palette.mist);
+    engine.textCentered(`TOTAL SCORE ${summary.score}`, layout.centerX, panel.y + ss(134), palette.frost);
+    engine.textCentered('PRESS FIRE FOR NEXT ROUND', layout.centerX, panel.y + panel.h - ss(20), palette.cloud);
   }
 
   function drawGameOver() {
     const gameOver = shell.gameOver;
     if (!gameOver) return;
-    const centerX = Math.round(screenWidth * 0.5);
+    const panel = layout.panels.gameOver;
 
-    drawPanel(118, 56, 244, 150, palette.gunmetal);
-    engine.textCentered('THE END', centerX, 74, palette.garnet);
-    engine.textCentered(`FINAL SCORE ${gameOver.score}`, centerX, 106, palette.frost);
-    engine.textCentered(`ROUND REACHED ${gameOver.round}`, centerX, 122, palette.apricot);
-    engine.textCentered(`HIGH SCORE ${gameOver.highScore}`, centerX, 138, palette.aqua);
-    engine.textCentered('PRESS FIRE TO DEPLOY AGAIN', centerX, 170, palette.cloud);
-    engine.textCentered('PRESS ESC TO RETURN TO TITLE', centerX, 184, palette.mist);
+    drawPanel(panel.x, panel.y, panel.w, panel.h, palette.gunmetal);
+    engine.textCentered('THE END', layout.centerX, panel.y + ss(14), palette.garnet);
+    engine.textCentered(`FINAL SCORE ${gameOver.score}`, layout.centerX, panel.y + ss(46), palette.frost);
+    engine.textCentered(`ROUND REACHED ${gameOver.round}`, layout.centerX, panel.y + ss(62), palette.apricot);
+    engine.textCentered(`HIGH SCORE ${gameOver.highScore}`, layout.centerX, panel.y + ss(78), palette.aqua);
+    engine.textCentered('PRESS FIRE TO DEPLOY AGAIN', layout.centerX, panel.y + ss(110), palette.cloud);
+    engine.textCentered('PRESS ESC TO RETURN TO TITLE', layout.centerX, panel.y + panel.h - ss(22), palette.mist);
   }
 
   function drawGameplay() {
     const round = shell.gameplay;
     if (!round) return;
+    const shakeX = round.shock > 0.15 ? randomRange(-round.shock, round.shock) : 0;
+    const shakeY = round.shock > 0.15 ? randomRange(-round.shock * 0.6, round.shock * 0.6) : 0;
 
     engine.pushClip(playfield.x, playfield.y, playfield.w, playfield.h);
+    engine.setCamera(-shakeX, -shakeY);
     drawCities(round);
     drawBatteries(round);
     drawTrails(round);
     drawExplosions(round);
     drawEmbers(round);
+    engine.setCamera(0, 0);
     drawCursor(round);
     engine.popClip();
 
@@ -1041,27 +1248,58 @@ import { clamp, resizeCanvas } from './core/utils.js';
   }
 
   function drawCities(round) {
+    const ruinHalfWidth = ss(12);
+    const ruinSpan = ss(14);
+    const ruinHeight = ss(6);
+    const leftTowerLeft = ss(16);
+    const leftTowerRight = ss(10);
+    const leftTowerHeight = ss(12);
+    const midTowerLeft = ss(9);
+    const midTowerRight = ss(3);
+    const midTowerHeight = ss(20);
+    const lowTowerLeft = ss(2);
+    const lowTowerRight = ss(4);
+    const lowTowerHeight = ss(15);
+    const tallTowerLeft = ss(5);
+    const tallTowerRight = ss(11);
+    const tallTowerHeight = ss(24);
+    const rightTowerLeft = ss(12);
+    const rightTowerRight = ss(17);
+    const rightTowerHeight = ss(10);
+    const skylineY = ss(13);
+
     for (const city of round.cities) {
       if (!city.alive) {
-        engine.rectFill(city.x - 12, groundY - 6, city.x + 12, groundY - 1, palette.soot);
-        engine.line(city.x - 14, groundY - 2, city.x + 14, groundY - 2, palette.rust, 1);
+        engine.rectFill(city.x - ruinHalfWidth, groundY - ruinHeight, city.x + ruinHalfWidth, groundY - 1, palette.soot);
+        engine.line(city.x - ruinSpan, groundY - 2, city.x + ruinSpan, groundY - 2, palette.rust, 1);
         continue;
       }
 
-      engine.rectFill(city.x - 16, groundY - 12, city.x - 10, groundY - 1, palette.stone);
-      engine.rectFill(city.x - 9, groundY - 20, city.x - 3, groundY - 1, palette.silver);
-      engine.rectFill(city.x - 2, groundY - 15, city.x + 4, groundY - 1, palette.cloud);
-      engine.rectFill(city.x + 5, groundY - 24, city.x + 11, groundY - 1, palette.mist);
-      engine.rectFill(city.x + 12, groundY - 10, city.x + 17, groundY - 1, palette.window);
-      engine.line(city.x - 14, groundY - 13, city.x + 15, groundY - 13, palette.panelEdge, 1);
+      engine.rectFill(city.x - leftTowerLeft, groundY - leftTowerHeight, city.x - leftTowerRight, groundY - 1, palette.stone);
+      engine.rectFill(city.x - midTowerLeft, groundY - midTowerHeight, city.x - midTowerRight, groundY - 1, palette.silver);
+      engine.rectFill(city.x - lowTowerLeft, groundY - lowTowerHeight, city.x + lowTowerRight, groundY - 1, palette.cloud);
+      engine.rectFill(city.x + tallTowerLeft, groundY - tallTowerHeight, city.x + tallTowerRight, groundY - 1, palette.mist);
+      engine.rectFill(city.x + rightTowerLeft, groundY - rightTowerHeight, city.x + rightTowerRight, groundY - 1, palette.window);
+      engine.line(city.x - ruinSpan, groundY - skylineY, city.x + ruinSpan + 1, groundY - skylineY, palette.panelEdge, 1);
     }
   }
 
   function drawBatteries(round) {
+    const wreckHalfWidth = ss(10);
+    const wreckRadius = ss(5);
+    const liveRadius = ss(10);
+    const baseHalfWidth = ss(8);
+    const baseTop = ss(2);
+    const baseBottom = ss(7);
+    const mastStart = ss(8);
+    const mastEnd = ss(18);
+    const shellHalfWidth = ss(4);
+    const barrelLift = ss(4);
+
     for (const battery of round.batteries) {
       if (!battery.alive) {
-        engine.rectFill(battery.x - 10, groundY - 3, battery.x + 10, groundY, palette.soot);
-        engine.circleFill(battery.x, groundY - 2, 5, palette.rust);
+        engine.rectFill(battery.x - wreckHalfWidth, groundY - ss(3), battery.x + wreckHalfWidth, groundY, palette.soot);
+        engine.circleFill(battery.x, groundY - ss(2), wreckRadius, palette.rust);
         continue;
       }
 
@@ -1069,10 +1307,10 @@ import { clamp, resizeCanvas } from './core/utils.js';
       const shellColor = selected ? palette.straw : palette.silver;
       const coreColor = battery.id === 1 ? palette.apricot : palette.aqua;
 
-      engine.circleFill(battery.x, battery.y, 10, selected ? palette.stone : palette.gunmetal);
-      engine.rectFill(battery.x - 8, battery.y - 2, battery.x + 8, battery.y + 7, palette.stone);
-      engine.line(battery.x, battery.y - 8, battery.x, battery.y - 18, coreColor, 2);
-      engine.line(battery.x - 4, battery.y - 4, battery.x + 4, battery.y - 4, shellColor, 1);
+      engine.circleFill(battery.x, battery.y, liveRadius, selected ? palette.stone : palette.gunmetal);
+      engine.rectFill(battery.x - baseHalfWidth, battery.y - baseTop, battery.x + baseHalfWidth, battery.y + baseBottom, palette.stone);
+      engine.line(battery.x, battery.y - mastStart, battery.x, battery.y - mastEnd, coreColor, 2);
+      engine.line(battery.x - shellHalfWidth, battery.y - barrelLift, battery.x + shellHalfWidth, battery.y - barrelLift, shellColor, 1);
     }
   }
 
@@ -1080,12 +1318,12 @@ import { clamp, resizeCanvas } from './core/utils.js';
     for (const missile of round.enemyMissiles) {
       engine.line(missile.startX, missile.startY, missile.x, missile.y, palette.mahogany, 2);
       engine.line(missile.startX, missile.startY, missile.x, missile.y, missile.type === 'mirv' ? palette.amber : palette.apricot, 1);
-      engine.circleFill(missile.x, missile.y, missile.type === 'mirv' ? 2.4 : 2, palette.sand);
+      engine.circleFill(missile.x, missile.y, missile.type === 'mirv' ? 2.4 * scale : ss(2), palette.sand);
     }
     for (const missile of round.playerMissiles) {
       engine.line(missile.startX, missile.startY, missile.x, missile.y, palette.ocean, 2);
       engine.line(missile.startX, missile.startY, missile.x, missile.y, palette.signalBlue, 1);
-      engine.circleFill(missile.x, missile.y, 2, palette.frost);
+      engine.circleFill(missile.x, missile.y, ss(2), palette.frost);
     }
   }
 
@@ -1111,62 +1349,69 @@ import { clamp, resizeCanvas } from './core/utils.js';
   }
 
   function drawCursor(round) {
-    engine.line(round.cursor.x - 8, round.cursor.y, round.cursor.x + 8, round.cursor.y, palette.cloud, 1);
-    engine.line(round.cursor.x, round.cursor.y - 8, round.cursor.x, round.cursor.y + 8, palette.cloud, 1);
-    engine.circleFill(round.cursor.x, round.cursor.y, 2, input.cursor.down ? palette.aqua : palette.apricot);
+    const cursorSpan = ss(8);
+    engine.line(round.cursor.x - cursorSpan, round.cursor.y, round.cursor.x + cursorSpan, round.cursor.y, palette.cloud, 1);
+    engine.line(round.cursor.x, round.cursor.y - cursorSpan, round.cursor.x, round.cursor.y + cursorSpan, palette.cloud, 1);
+    engine.circleFill(round.cursor.x, round.cursor.y, ss(2), input.cursor.down ? palette.aqua : palette.apricot);
   }
 
   function drawHud(round) {
-    const hudY = 13;
+    const stats = [
+      { text: `ROUND ${round.campaign.round}`, color: palette.frost },
+      { text: `SCORE ${round.campaign.score}`, color: palette.aqua },
+      { text: `HIGH ${shell.highScore}`, color: palette.cloud },
+      { text: `MULT ${round.campaign.multiplier}`, color: palette.sand },
+      { text: `RES ${round.campaign.reserveCities}`, color: palette.apricot },
+      { text: `CITIES ${round.campaign.cityAlive.filter(Boolean).length}`, color: palette.mist },
+    ];
 
-    engine.rectFill(playfield.x + 2, playfield.y + 1, playfield.x + playfield.w - 3, 23, palette.midnight);
-    engine.line(playfield.x + 2, 23, playfield.x + playfield.w - 3, 23, palette.mineral, 1);
-    engine.text(`ROUND ${round.campaign.round}`, 18, hudY, palette.frost);
-    engine.text(`SCORE ${round.campaign.score}`, 88, hudY, palette.aqua);
-    engine.text(`HIGH ${shell.highScore}`, 188, hudY, palette.cloud);
-    engine.text(`MULT ${round.campaign.multiplier}`, 292, hudY, palette.sand);
-    engine.text(`RES ${round.campaign.reserveCities}`, 360, hudY, palette.apricot);
-    engine.text(`CITIES ${round.campaign.cityAlive.filter(Boolean).length}`, 408, hudY, palette.mist);
+    engine.rectFill(playfield.x + 2, layout.hud.top, playfield.x + playfield.w - 3, layout.hud.bottom, palette.midnight);
+    engine.line(playfield.x + 2, layout.hud.bottom, playfield.x + playfield.w - 3, layout.hud.bottom, palette.mineral, 1);
+
+    for (let index = 0; index < stats.length; index++) {
+      engine.textCentered(stats[index].text, layout.hud.columns[index], layout.hud.textY, stats[index].color);
+    }
   }
 
   function drawBatteryBar(round) {
-    const barLeft = playfield.x + 56;
-    const barRight = playfield.x + playfield.w - 56;
+    const bar = layout.batteryBar;
 
-    engine.rectFill(barLeft, 233, barRight, 251, palette.midnight);
-    engine.line(barLeft, 233, barRight, 233, palette.mineral, 1);
-    engine.line(barLeft, 251, barRight, 251, palette.panelEdge, 1);
+    engine.rectFill(bar.left, bar.top, bar.right, bar.bottom, palette.midnight);
+    engine.line(bar.left, bar.top, bar.right, bar.top, palette.mineral, 1);
+    engine.line(bar.left, bar.bottom, bar.right, bar.bottom, palette.panelEdge, 1);
 
     for (const battery of round.batteries) {
       const selected = battery.id === round.selectedBattery;
       const color = !battery.alive ? palette.rust : selected ? palette.straw : palette.frost;
 
       if (selected) {
-        engine.line(battery.x - 34, 235, battery.x + 34, 235, palette.ocean, 1);
-        engine.line(battery.x - 34, 249, battery.x + 34, 249, palette.straw, 1);
+        engine.line(battery.x - bar.selectionHalfWidth, bar.top + ss(2), battery.x + bar.selectionHalfWidth, bar.top + ss(2), palette.ocean, 1);
+        engine.line(battery.x - bar.selectionHalfWidth, bar.bottom - ss(2), battery.x + bar.selectionHalfWidth, bar.bottom - ss(2), palette.straw, 1);
       }
 
-      drawMissilePyramid(battery.x, 236, battery.missiles, battery.maxMissiles, color, palette.soot, 4, 2, 1);
+      drawMissilePyramid(battery.x, bar.pyramidTop, battery.missiles, battery.maxMissiles, color, palette.soot, bar.cellWidth, bar.cellHeight, bar.cellGap);
     }
 
     for (let index = 0; index < round.batteries.length - 1; index++) {
       const dividerX = Math.round((round.batteries[index].x + round.batteries[index + 1].x) * 0.5);
-      engine.line(dividerX, 236, dividerX, 248, palette.panelEdge, 1);
+      engine.line(dividerX, bar.dividerTop, dividerX, bar.dividerBottom, palette.panelEdge, 1);
     }
   }
 
   function drawBanner(text, timer, color) {
+    const panel = layout.panels.banner;
     const pulse = Math.sin(timer * 0.02) * 0.5 + 0.5;
-    drawPanel(116, 96, 248, 26, color === palette.apricot ? palette.coffee : palette.gunmetal);
-    engine.rectFill(116, 96, 364, 122, pulse > 0.5 ? color : (color === palette.apricot ? palette.straw : palette.mist));
-    engine.rect(116, 96, 364, 122, palette.white, 1);
-    engine.text(text, 132, 104, palette.midnight);
+    drawPanel(panel.x, panel.y, panel.w, panel.h, color === palette.apricot ? palette.coffee : palette.gunmetal);
+    engine.rectFill(panel.x, panel.y, panel.x + panel.w, panel.y + panel.h, pulse > 0.5 ? color : (color === palette.apricot ? palette.straw : palette.mist));
+    engine.rect(panel.x, panel.y, panel.x + panel.w, panel.y + panel.h, palette.white, 1);
+    engine.textCentered(text, layout.centerX, panel.y + ss(8), palette.midnight);
   }
 
   function drawPausedOverlay() {
-    drawPanel(136, 114, 208, 52, palette.gunmetal);
-    engine.text('PAUSED', 214, 126, palette.frost);
-    engine.text('ESC TO LEAVE ROUND', 154, 142, palette.mist);
+    const panel = layout.panels.paused;
+    drawPanel(panel.x, panel.y, panel.w, panel.h, palette.gunmetal);
+    engine.textCentered('PAUSED', layout.centerX, panel.y + ss(12), palette.frost);
+    engine.textCentered('ESC TO LEAVE ROUND', layout.centerX, panel.y + ss(28), palette.mist);
   }
 
   function drawPanel(x, y, w, h, colorA) {

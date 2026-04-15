@@ -6,7 +6,7 @@ It currently ships with a small interactive demo instead of a full game so the r
 
 ## Included
 
-- An immediate-mode indexed-color renderer under `src/js/core/ImmediateModeEngine.js` and `src/js/core/immediate/`.
+- An immediate-mode indexed-color renderer under `src/js/core/Retrobuffer.js` and `src/js/core/immediate/`.
 - A particle stress-test demo in `src/js/game.js` that boots the engine and exercises the current primitive and sprite paths.
 - A production build that keeps output self-contained without JS13K-specific packing steps.
 
@@ -37,7 +37,7 @@ const [paletteImage, fontImage, spriteImage] = await Promise.all([
   loadImage('DATAURL:src/img/sprites-main.png'),
 ]);
 
-const engine = new ImmediateModeEngine(480, 270, {
+const engine = new Retrobuffer(640, 360, {
   paletteImage,
   font: {
     image: fontImage,
@@ -56,7 +56,7 @@ const engine = new ImmediateModeEngine(480, 270, {
 });
 
 document.getElementById('game').appendChild(engine.canvas);
-resizeCanvas(engine.canvas, 480, 270);
+resizeCanvas(engine.canvas, 640, 360);
 requestAnimationFrame(loop);
 ```
 

@@ -2,11 +2,9 @@ export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-export function resizeCanvas(canvas, baseWidth, baseHeight) {
-  const scale = Math.min(window.innerWidth / baseWidth, window.innerHeight / baseHeight);
-  const appliedScale = scale >= 1 ? Math.floor(scale) : scale;
-  const width = Math.max(1, Math.floor(baseWidth * appliedScale));
-  const height = Math.max(1, Math.floor(baseHeight * appliedScale));
+export function resizeCanvas(canvas, baseWidth, baseHeight, scale = 1) {
+  const width = Math.max(1, Math.floor(baseWidth * scale));
+  const height = Math.max(1, Math.floor(baseHeight * scale));
 
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
