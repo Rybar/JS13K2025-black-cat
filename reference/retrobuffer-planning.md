@@ -328,7 +328,7 @@ live reload / hot reload
 asset editing workflow
 packaging/export
 debugging tools
-browser-only versus optional desktop shell
+browser-playable runtime versus VS Code extension-based authoring
 13. Phased Roadmap
 
 Create a realistic phased roadmap with dependencies.

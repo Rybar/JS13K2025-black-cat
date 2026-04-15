@@ -1,0 +1,77 @@
+{
+  "name": "retrobuffer-tools",
+  "displayName": "RetroBuffer Tools",
+  "description": "VS Code asset tooling for RetroBuffer projects",
+  "version": "0.0.1",
+  "publisher": "malmr-local",
+  "private": true,
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "retrobufferTools.createSpriteAsset",
+        "title": "RetroBuffer: Create Sprite Asset"
+      },
+      {
+        "command": "retrobufferTools.refreshAssets",
+        "title": "RetroBuffer: Refresh Assets"
+      },
+      {
+        "command": "retrobufferTools.openSpriteAsset",
+        "title": "RetroBuffer: Open Sprite Asset"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "retrobufferAssets",
+          "name": "RetroBuffer Assets"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "retrobufferTools.refreshAssets",
+          "when": "view == retrobufferAssets",
+          "group": "navigation"
+        },
+        {
+          "command": "retrobufferTools.createSpriteAsset",
+          "when": "view == retrobufferAssets",
+          "group": "navigation@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "retrobufferTools.createSpriteAsset",
+          "when": "explorerResourceIsFolder"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "retrobufferTools.openSpriteAsset",
+          "when": "view == retrobufferAssets && viewItem == retrobufferSpriteAsset"
+        }
+      ]
+    },
+    "customEditors": [
+      {
+        "viewType": "retrobufferTools.spriteEditor",
+        "displayName": "RetroBuffer Sprite Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.rbsprite.json"
+          }
+        ],
+        "priority": "default"
+      }
+    ]
+  }
+}
